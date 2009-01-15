@@ -1,0 +1,44 @@
+
+INSTALLATION
+
+Bluestone can be used in your PHP application by placing its files
+into any directory on the server.
+
+In your application configuration, you should define where the bluestone
+files are using the BLUESTONE_DIR constant.  Include the trailing slash.
+For example,
+
+define(BLUESTONE_DIR, '/path/to/bluestone/');
+
+DOCUMENTATION
+
+Unfortunately Bluestone has no other documentation at the moment,
+other than to read and understand its source code.
+
+SUPPORT
+
+Support is unavailable for Bluestone at this time.  Bugs or questions may
+be sent via the Launchpad project site at https://launchpad.net/bluestone
+though no guarantee can be made as to dealing with them promptly.
+
+COPYING
+
+Bluestone is Copyright (c) 2004, 2009 Thomas Rutter
+
+Bluestone is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as 
+published by the Free Software Foundation, either version 3 of
+the License, or (at your option) any later version.
+
+Bluestone is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with Bluestone.  If not, see	
+<http://www.gnu.org/licenses/>.
+
+THE GNU LESSER GENERAL PUBLIC LICENSE, AND THE GNU GENERAL
+PUBLIC LICENSE ON WHICH IT EXPANDS, ARE INCLUDED WITHIN THIS
+PACKAGE AS COPYING.LGPL AND COPYING.GPL.

@@ -1,8 +1,25 @@
 <?php 
 
-// context.inc.php
-
-// class for handling input and output from the server
+/*
+	context - a generic class for handing input and output from web server
+	Copyright (c) 2004, 2009 Thomas Rutter
+	
+	This file is part of Bluestone.
+	
+	Bluestone is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Lesser General Public License as 
+	published by the Free Software Foundation, either version 3 of
+	the License, or (at your option) any later version.
+	
+	Bluestone is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
+	
+	You should have received a copy of the GNU Lesser General Public
+	License along with Bluestone.  If not, see	
+	<http://www.gnu.org/licenses/>.
+*/
 
 class context
 {
@@ -73,7 +90,7 @@ class context
 	// filters a string to remove invalid utf-8.  filters recursively
 	// if $val is an array.
 	{
-		require_once(RESOURCE_DIR . 'includes/utf8_string.inc.php');
+		require_once(BLUESTONE_DIR . 'utf8_string.inc.php');
 		if (is_array($val))
 		{
 			foreach ($val as $vkey => $vval)
@@ -88,7 +105,7 @@ class context
 	// returns an http redirect
 	{
 		$cookies = !empty($this->cookies);
-		require_once(RESOURCE_DIR . 'includes/system/redirect.inc.php');
+		require_once(BLUESTONE_DIR . 'system/redirect.inc.php');
 	}
 	
 	function header($text, $replace = false)
@@ -276,7 +293,7 @@ class context
 			if ($this->length >= 8192) header('Accept-Ranges: bytes');
 			if (!empty($_SERVER['HTTP_RANGE']))
 			{
-				require_once(RESOURCE_DIR . 'includes/httpresume.inc.php');
+				require_once(BLUESTONE_DIR . 'httpresume.inc.php');
 				$httpresume = 
 					&new httpresume($this->length, $this->etag, $this->lastmodified, $this->vary, $this->contenttype);
 				$ranges = $httpresume->getranges();	
@@ -337,7 +354,7 @@ class context
 	// halts the script and displays an error message.  this is only to be used when
 	// the error is absolutely unavoidable and beyond user's control
 	{
-		include(RESOURCE_DIR . 'includes/system/fatalerror.inc.php'); exit;
+		include(BLUESTONE_DIR . 'system/fatalerror.inc.php'); exit;
 	}
 	
 	function &getinstance()

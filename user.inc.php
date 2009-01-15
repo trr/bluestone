@@ -1,9 +1,29 @@
 <?php
 
-// user.inc.php
+/*
+	user - manages aspects of tracking a user through sessions
+	Copyright (c) 2004, 2009 Thomas Rutter
+	
+	This file is part of Bluestone.
+	
+	Bluestone is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Lesser General Public License as 
+	published by the Free Software Foundation, either version 3 of
+	the License, or (at your option) any later version.
+	
+	Bluestone is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
+	
+	You should have received a copy of the GNU Lesser General Public
+	License along with Bluestone.  If not, see	
+	<http://www.gnu.org/licenses/>.
+*/
 
 // class user - this manages aspects of tracking a user securely, logged in or not,
 // through sessions, "stay logged in" and CSRF protection tokens
+
 
 // this class needs access to the context because it reads and writes get variables and cookies
 

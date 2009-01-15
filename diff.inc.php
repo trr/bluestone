@@ -1,8 +1,25 @@
 <?php
 
-// diff.inc.php
-
-// finds the difference between two strings and returns it as an edit list
+/*
+	diff - for comparing, merging, between strings and files
+	Copyright (c) 2004, 2009 Thomas Rutter
+	
+	This file is part of Bluestone.
+	
+	Bluestone is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Lesser General Public License as 
+	published by the Free Software Foundation, either version 3 of
+	the License, or (at your option) any later version.
+	
+	Bluestone is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
+	
+	You should have received a copy of the GNU Lesser General Public
+	License along with Bluestone.  If not, see	
+	<http://www.gnu.org/licenses/>.
+*/
 
 // utf8 mode - on those functions that support it - avoids breaking utf8 characters
 // in half in an edit.  all offsets and lengths are still counted in bytes, however.

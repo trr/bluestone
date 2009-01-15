@@ -1,9 +1,25 @@
 <?php
 
-// redirect.inc.php
-
-// for redirecting
-// if we're in debug mode, we actually see the redirect page
+/*
+	redirect - for implementing an HTTP redirect
+	Copyright (c) 2004, 2009 Thomas Rutter
+	
+	This file is part of Bluestone.
+	
+	Bluestone is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Lesser General Public License as 
+	published by the Free Software Foundation, either version 3 of
+	the License, or (at your option) any later version.
+	
+	Bluestone is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
+	
+	You should have received a copy of the GNU Lesser General Public
+	License along with Bluestone.  If not, see	
+	<http://www.gnu.org/licenses/>.
+*/
 
 // determine status - we assume we never want to redirect on POST and re-submit the POST vars
 $context = context::getinstance();
