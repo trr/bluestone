@@ -170,16 +170,25 @@ class debug
 			
 			$backtrace = debug_backtrace();
 		  	
+			$totallen = 0; // prevent backtrace being too big
 			foreach ($backtrace as $row)
 		  	{
-		  		if (isset($row['class']) and $row['class'] == 'debug') continue;
-					$output = '';
+		  		if (isset($row['class']) && $row['class'] == 'debug') continue;
+				if ($totallen >= 16384)
+				{
+					$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
+					break;
+				}
+				$output = '';
 		  		foreach ($row as $key => $var)
-		  		{
+				{
 		  			if ($output) $output .= ', ';
-						$output .= $key . ': ' . print_r($var, true);
-		  		}
+					$output .= $key . ': ' . print_r($var, true);
+				}
+				if (strlen($output) > 8192)
+					$output = substr($output, 0, 8192) . '... (truncated)';
 				$this->notice('debug', 'backtrace', $output);
+				$totallen += strlen($output);
 		  	}
 			
 			echo $this->getnoticeshtml();
@@ -190,13 +199,13 @@ class debug
 	
 	function getnoticeshtml()
 	{
-	  if (!count($this->notices)) return '';
-	  $output = '<table border="1" cellspacing="0" cellpadding="4" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
+		if (!count($this->notices)) return '';
+		$output = '<table border="1" cellspacing="0" cellpadding="4" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
 		
 		foreach ($this->notices as $notice)
 		{
-		  $taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 5) : '&nbsp;';
-      $data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
+			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 5) : '&nbsp;';
+			$data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
 			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 5) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
 		}		
 		
@@ -224,26 +233,27 @@ class debug
 	// designed as a PHP custom error handler - it logs it into the debug notices as
 	// a notice, unless it's a fatal error.
 	{
-	  // we need to double check if this error needs reporting
+		// we need to double check if this error needs reporting
 		if (!($errno & error_reporting())) return;
 		
-	  $errortypes = array( E_ERROR           => 'Error',
-		                     E_WARNING         => 'Warning',
-												 E_PARSE           => 'Parse Error',
-												 E_NOTICE          => 'Notice',
-												 E_CORE_ERROR      => 'Core Error',
-												 E_CORE_WARNING    => 'Core Warning',
-												 E_COMPILE_ERROR   => 'Compile Error',
-												 E_COMPILE_WARNING => 'Compile Warning',
-												 E_USER_ERROR      => 'User Error',
-												 E_USER_WARNING    => 'User Warning',
-												 E_USER_NOTICE     => 'User Notice'
-											 );					 
+		$errortypes = array(
+			E_ERROR           => 'Error',
+			E_WARNING         => 'Warning',
+			E_PARSE           => 'Parse Error',
+			E_NOTICE          => 'Notice',
+			E_CORE_ERROR      => 'Core Error',
+			E_CORE_WARNING    => 'Core Warning',
+			E_COMPILE_ERROR   => 'Compile Error',
+			E_COMPILE_WARNING => 'Compile Warning',
+			E_USER_ERROR      => 'User Error',
+			E_USER_WARNING    => 'User Warning',
+			E_USER_NOTICE     => 'User Notice'
+			);					 
 											 
 		$errortype = (isset($errortypes[$errno])) ? $errortypes[$errno] : 'Unknown Error';		
 		
-	  $this->notice('debug', 'PHP error handling', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
-	  $this->haltif($errno);
+		$this->notice('debug', 'PHP error handling', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
+		$this->haltif($errno);
 	}
   
 	// protected
