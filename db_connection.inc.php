@@ -109,9 +109,7 @@ class db_connection
 		}
 		$this->result = mysql_query($query, $this->connection);
 		if (DEBUG)
-		{
 			$debug->endtask($taskid);
-		}
 		if ($this->result) return $this->result;
 		// or failed
 		$this->set_error('Database query failed; no result was returned');
