@@ -81,7 +81,7 @@ class context
 				foreach ($options as $optionval) if ($val == $optionval) return $optionval;
 				return NULL;
 			case 'mixed':
-				return strlen($val) ? $this->utf8_filter($val) : '';
+				return ($val !== '') ? $this->utf8_filter($val) : '';
 		}
 		return NULL;
 	}
