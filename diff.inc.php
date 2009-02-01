@@ -341,7 +341,7 @@ class diff
 }
 
 //function uhash($d){return trim(strtr(base64_encode(hash('sha256',$d,1)),'+/=','-_ '));}
-//echo uhash('\IY&FB&I$Y yg Ubdombpmknpdhnji tf YTF YFYU F@!U%F@!VVDCV^R WU  BWJHBJHbJB b  v ewhrhonruo6hwun6p8upht ohethei qeiuick browth thwi afngs ae. ai jiw ant t ot fua ck t ha tat a aleij laeji laie lial ei lai glirl aglajeglaiegah');
+//echo uhash('arand');
 
 /*
 set_time_limit(12);
