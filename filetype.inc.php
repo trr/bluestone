@@ -75,16 +75,9 @@ class filetype
 			if ($backward)
 			{
 				$haystack = $this->getchunk($sourceoff+$sourcelen-$i-$extent, $extent);				
-				if (version_compare(PHP_VERSION, '5.0.0') >= 0)
-				{
-					if (($pos = strrpos($haystack, $needle)) !== false)
-						return $pos+$sourceoff+$sourcelen-$i-$extent;
-				}
-				else // PHP4 compatible; for when strrpos only accepts a single char - this could be slow
-				{
-					if (($pos = strpos(strrev($haystack), strrev($needle))) !== false)
-						return $sourceoff+$sourcelen-$i-$pos-strlen($needle);
-				}
+				// requires PHP5
+				if (($pos = strrpos($haystack, $needle)) !== false)
+					return $pos+$sourceoff+$sourcelen-$i-$extent;
 			}
 			else
 			{

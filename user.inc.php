@@ -312,9 +312,8 @@ class user
 	// static
 	function uhash($d)
 	{
-		if (function_exists('hash')) // "url-compatible base64" coding of the sha256 hash
-			return trim(strtr(base64_encode(hash('sha256',$d,1)),'+/=','-_ '));
-		return sha1($d); // php4 compatible - remove later
+		// requires PHP5
+		return trim(strtr(base64_encode(hash('sha256',$d,1)),'+/=','-_ '));
 	}
 
 	function setdb(&$db)
