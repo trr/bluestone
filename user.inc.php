@@ -285,7 +285,7 @@ class user
 		if (mt_rand(0,200) == 50) // occasional clean up, also saves some space
 		{
 			$expire = TIMENOW - USER_PERSISTLENGTH;
-			$this->query("UPDATE {$this->prefix}userlogin
+			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_hash=NULL, userlogin_newID=0, userlogin_hashstillvalid=0
 				WHERE userlogin_userid=$userid AND userlogin_time<$expire
 				");
