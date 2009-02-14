@@ -160,17 +160,24 @@ class context
 		$ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
 		
 		$nofresh = (($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
-			|| ($this->vary=='*' || strpos($this->vary, ',') !== false) // common intolerance of multiple vary
+			|| $this->vary=='*' || (strpos($this->vary, ',') !== false) // common intolerance of multiple vary
 			|| !empty($this->cache_directives['no-cache'])); 
 		$nohttp10 = $this->vary != '' || $this->statuscode != 200 || $this->max_age < 300;
+		
+		// do not send cache control headers for IE5.5 or IE6 when gzip encoding
+		// see http://support.microsoft.com/default.aspx?scid=kb;en-us;321722
+		$noheaders = $this->docompress
+			&& $this->vary != '' && preg_match('/MSIE [654]\.[05];/', $ua);
 
 		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
 		if ($this->docompress) $this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
 		
-		header("Cache-Control: " . implode(', ', $this->cache_directives));
-		if (!$nofresh && !$nohttp10)
+		if (count($this->cache_directives) && !$noheaders) 
+			header("Cache-Control: " . implode(', ', $this->cache_directives));
+		if (!$nofresh && !$nohttp10 && !$noheaders)
 			header("Expires: " . gmdate('D, d M Y H:i:s', TIMENOW + $this->max_age) . ' GMT');
-		if ($this->vary!='') header("Vary: {$this->vary}");
+		if ($this->vary!='')
+			header("Vary: {$this->vary}");
 		
 		$this->etag = null;
 	
@@ -225,6 +232,11 @@ class context
 	function processgzip()
 	{
  		if (!extension_loaded('zlib')) return false;
+		// Do not gzip compress javascript or CSS for internet explorer 6 due to bug
+		if (preg_match('#^text/css\b|^text/javascript\b#', $this->contenttype)
+			&& ($ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string'))
+			&& preg_match('/MSIE [654]\.[05];/', $ua))
+			return false;
 		$acceptencoding = $this->load_var('HTTP_ACCEPT_ENCODING', 'SERVER', 'string');
 		if (empty($acceptencoding)) return false;
 		if (!preg_match('#^(text/|application/(xhtml|xml|postsc|mswor|excel|rtf|x-tar)|image/(bmp|tiff))#i', $this->contenttype))
@@ -245,6 +257,7 @@ class context
 	// basedir is required; using it properly ensures that the $filename is from
 	// within that basedir.  it's important
 	{
+		if ($basedir == '' || $basedir == '/') trigger_error('Invalid basedir', E_USER_ERROR);
 		$this->contentfilename = $filename;
 		$this->basedir = $basedir;
 	}
@@ -275,14 +288,7 @@ class context
 			if ($this->docompress)
 			{
 				$data = gzencode($data, 1);
-				$ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
-				if ($this->vary and preg_match('/MSIE (5\.5|6\.0);/', $ua))
-				{
-					// see microsoft knowledgebase http://support.microsoft.com/default.aspx?scid=kb;en-us;321722
-					// IE 5.5 and 6.0 cannot handle any type of cache control headers with gzip encoding - it will always cache the file
-					header('Cache-Control:');
-					header('Expires:');
-				}				
+				
 				header('Content-Encoding: gzip');
 				ini_set('zlib.output_compression', 'Off');
 			}
