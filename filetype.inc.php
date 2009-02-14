@@ -32,6 +32,7 @@ class filetype
 	function filetype($data = null, $filename = null)
 	// if filename is left blank, $data is taken to contain the contents of the file.
 	// if filename is given then data is ignored
+	// care MUST be taken to ensure the filename provided is safe
 	{
 		$this->isfile = $filename !== null;
 		

@@ -216,6 +216,7 @@ class diff
 	
 	//static
 	function dodiff_file($filenamea, $filenameb)
+	// care MUST be taken that the filenames provided are safe
 	{
 		$alen = filesize($filenamea);		$blen = filesize($filenameb);
 		$a = fopen($filenamea, 'rb');		$b = fopen($filenameb, 'rb');
