@@ -26,7 +26,7 @@ class context
 	function context()
 	// constructor
 	{
-		$this->max_age = 86400;
+		$this->max_age = null;
 		$this->sourcearray = array(
 			'REQUEST' => &$_REQUEST,
 			'GET' => &$_GET,
@@ -115,8 +115,10 @@ class context
 	}
 	
 	function setmaxage($age)
+	// adds freshness information to cache headers sent - default none (no max-age)
 	{
-		if ($age < $this->max_age && $age >= 0) $this->max_age = $age;
+		if ($this->max_age === null || $age < $this->max_age)
+			$this->max_age = max(0, $age);
 	}
 	
 	function setvary($vary)
@@ -159,7 +161,8 @@ class context
 		$addr = $this->load_var('SERVER_ADDR', 'SERVER', 'location');
 		$ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
 		
-		$nofresh = (($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
+		$nofresh = ($this->max_age === null
+			|| ($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
 			|| $this->vary=='*' || (strpos($this->vary, ',') !== false) // common intolerance of multiple vary
 			|| !empty($this->cache_directives['no-cache'])); 
 		$nohttp10 = $this->vary != '' || $this->statuscode != 200 || $this->max_age < 300;
