@@ -30,6 +30,8 @@ if (!headers_sent())
 
 $postmethod = !empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD']=='POST';
 
+$postempty = ($postmethod && !count($_POST));
+
 if (class_exists('debug') && DEBUG)
 {
 	$debug = &debug::getinstance();
@@ -96,10 +98,11 @@ li {margin-bottom: 6px;}
 	<ul>
 		<li>You could try refreshing the page in a little while to see if the problem is temporary.</li>
 		<li>Perhaps there is a problem with the page itself.  Try going back to the last page you were on, or visit the <a href="/">home page</a>.</li>
-		<?php if ($postmethod) { ?>
+		<?php if ($postmethod && !$postempty) { ?>
 		<li>If you tried to submit a form or take an action, it may have been successful despite this error.
 		Do not try re-submitting if it would be a problem to take the action twice (such as sending a message or making a purchase).</li>
-
+		<?php } elseif ($postmethod && $postempty) { ?>
+		<li>If you tried to submit a form or send a file, the total size of what you sent may have been too large for this site.</li>		
 		<?php } ?>
 	</ul>
 	<?php echo $debugnotices; ?>

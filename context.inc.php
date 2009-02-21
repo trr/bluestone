@@ -36,7 +36,7 @@ class context
 			);
 		if (!count($_POST) && !empty($_SERVER['REQUEST_METHOD'])
 			&& $_SERVER['REQUEST_METHOD'] == 'POST')
-			trigger_error("POST with no vars, check post_max_size", E_USER_ERROR);
+			$this->fatal_error();
 		$this->magicquotes = get_magic_quotes_gpc();
 	}
 	
