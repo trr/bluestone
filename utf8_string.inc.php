@@ -78,11 +78,103 @@ class utf8_string
 		return $this->convertfromascii($replace);
 	}
 	
+	function normalchars()
+	// attempts to normalise any character that is a variant of another.
+	// letters with accents get turned into their base letters
+	// This can aid in sorting, where different forms of the letter 'a' should
+	// sort in the same position
+	// note: only selected unicode chars are translated, doesn't process most chars above 0x24f for example
+	// this will also convert everything to lowercase.  Therefore converting to lowercase
+	// separately is an unnecessary use of cpu cycles.
+	{
+		$str = $this->tolower();
+		
+		// optimise - nothing to do if \xc3 through \xc9, or \xcc through \xcd, not present
+		if (strtr($str, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xcc\xcd", '         ') == $str)
+			return $str;
+		
+		static $transtable = array( 
+			// normalisation set up to U+024F, pretty rough by TRUT
+			"\xc3\xdf"=>'ss',"\xc3\xa0"=>'a',"\xc3\xa1"=>'a',"\xc3\xa2"=>'a',"\xc3\xa3"=>'a',
+			"\xc3\xa4"=>'a',"\xc3\xa5"=>'a',"\xc3\xa6"=>'e',"\xc3\xa7"=>'c',"\xc3\xa8"=>'e',
+			"\xc3\xa9"=>'e',"\xc3\xaa"=>'e',"\xc3\xab"=>'e',"\xc3\xac"=>'i',"\xc3\xad"=>'i',
+			"\xc3\xae"=>'i',"\xc3\xaf"=>'i',"\xc3\xb0"=>'d',"\xc3\xb1"=>'n',"\xc3\xb2"=>'o',
+			"\xc3\xb3"=>'o',"\xc3\xb4"=>'o',"\xc3\xb5"=>'o',"\xc3\xb6"=>'o',/*gap*/
+			"\xc3\xb8"=>'o',"\xc3\xb9"=>'u',"\xc3\xba"=>'u',"\xc3\xbb"=>'u',"\xc3\xbc"=>'u',
+			"\xc3\xbd"=>'d',"\xc3\xbe"=>'th',"\xc3\xbf"=>'y',"\xc4\x81"=>'a',"\xc4\x83"=>'a',
+			"\xc4\x85"=>'a',"\xc4\x87"=>'c',"\xc4\x89"=>'c',"\xc4\x8b"=>'c',"\xc4\x8d"=>'c',
+			"\xc4\x8f"=>'d',"\xc4\x91"=>'d',"\xc4\x93"=>'e',"\xc4\x95"=>'e',"\xc4\x97"=>'e',
+			"\xc4\x99"=>'e',"\xc4\x9b"=>'e',"\xc4\x9d"=>'g',"\xc4\x9f"=>'g',"\xc4\xa1"=>'g',
+			"\xc4\xa3"=>'g',"\xc4\xa5"=>'h',"\xc4\xa7"=>'h',"\xc4\xa9"=>'i',"\xc4\xab"=>'i',
+			"\xc4\xad"=>'i',"\xc4\xaf"=>'i',"\xc4\xb1"=>'i',"\xc4\xb3"=>'ij',"\xc4\xb5"=>'j',
+			"\xc4\xb7"=>'k',"\xc4\xb8"=>'q',"\xc4\xba"=>'l',"\xc4\xbc"=>'l',"\xc4\xbe"=>'l',
+			"\xc5\x80"=>'l',"\xc5\x82"=>'l',"\xc5\x84"=>'n',"\xc5\x86"=>'n',"\xc5\x88"=>'n',
+			"\xc5\x89"=>'n',"\xc5\x8b"=>'n',"\xc5\x8d"=>'o',"\xc5\x8f"=>'o',"\xc5\x91"=>'o',
+			"\xc5\x93"=>'oe',"\xc5\x95"=>'r',"\xc5\x97"=>'r',"\xc5\x99"=>'r',"\xc5\x9b"=>'s',
+			"\xc5\x9d"=>'s',"\xc5\x9f"=>'s',"\xc5\xa1"=>'s',"\xc5\xa3"=>'t',"\xc5\xa5"=>'t',
+			"\xc5\xa7"=>'t',"\xc5\xa9"=>'u',"\xc5\xab"=>'u',"\xc5\xad"=>'u',"\xc5\xaf"=>'u',
+			"\xc5\xb1"=>'u',"\xc5\xb3"=>'u',"\xc5\xb5"=>'w',"\xc5\xb7"=>'y',"\xc5\xba"=>'z',
+			"\xc5\xbc"=>'z',"\xc5\xbe"=>'z',"\xc5\xbf"=>'s',
+			"\xc6\x80"=>'b',"\xc6\x83"=>'b',"\xc6\x85"=>'b',/*??*/"\xc6\x88"=>'c',
+			"\xc6\x8c"=>'d',"\xc6\x8d"=>'d',/*delta*/"\xc6\x92"=>'f',"\xc6\x95"=>'hv',
+			"\xc6\x99"=>'k',"\xc6\x9a"=>'l',"\xc6\x9b"=>'l',/*lambda*/"\xc6\x9e"=>'n',
+			"\xc6\xa1"=>'o',"\xc6\xa3"=>'o',"\xc6\xa5"=>'p',"\xc6\xa6"=>'r',"\xc6\xa8"=>'s',
+			"\xc6\xaa"=>'s',"\xc6\xab"=>'t',"\xc6\xad"=>'t',"\xc6\xb0"=>'u',"\xc6\xb4"=>'y',
+			"\xc6\xb6"=>'z',"\xc6\xb9"=>'z',"\xc6\xba"=>'z',"\xc6\xbb"=>'2',"\xc6\xbd"=>'5',
+			"\xc6\xbe"=>'t',"\xc6\xbf"=>'w',
+			"\xc7\x80"=>'t',"\xc7\x81"=>'k',/*??*/"\xc7\x82"=>'k',/*??*/"\xc7\x83"=>'k',/*??*/
+			"\xc7\x86"=>'z',"\xc7\x89"=>'lj',"\xc7\x8c"=>'nj',"\xc7\x8e"=>'a',"\xc7\x90"=>'i',
+			"\xc7\x92"=>'o',"\xc7\x94"=>'u',"\xc7\x96"=>'u',"\xc7\x98"=>'u',"\xc7\x9a"=>'u',
+			"\xc7\x9c"=>'u',"\xc7\x9d"=>'e',"\xc7\x9f"=>'a',"\xc7\xa1"=>'a',"\xc7\xa3"=>'e',
+			"\xc7\xa5"=>'g',"\xc7\xa7"=>'g',"\xc7\xa9"=>'k',"\xc7\xab"=>'o',"\xc7\xad"=>'o',
+			"\xc7\xaf"=>'s',"\xc7\xb0"=>'j',"\xc7\xb3"=>'dz',"\xc7\xb5"=>'g',"\xc7\xb8"=>'n',
+			"\xc7\xbb"=>'a',"\xc7\xbd"=>'e',"\xc7\xbf"=>'o',
+			"\xc8\x81"=>'a',"\xc8\x83"=>'a',"\xc8\x85"=>'e',"\xc8\x87"=>'e',"\xc8\x89"=>'i',
+			"\xc8\x8b"=>'i',"\xc8\x8d"=>'o',"\xc8\x8f"=>'o',"\xc8\x91"=>'r',"\xc8\x93"=>'r',
+			"\xc8\x95"=>'u',"\xc8\x97"=>'u',"\xc8\x99"=>'s',"\xc8\x9b"=>'t',"\xc8\x9d"=>'y',
+			"\xc8\x9f"=>'h',"\xc8\xa1"=>'d',"\xc8\xa3"=>'ou',"\xc8\xa5"=>'z',"\xc8\xa7"=>'a',
+			"\xc8\xa9"=>'e',"\xc8\xab"=>'o',"\xc8\xad"=>'o',"\xc8\xaf"=>'o',"\xc8\xb1"=>'o',
+			"\xc8\xb3"=>'y',"\xc8\xb4"=>'l',"\xc8\xb5"=>'n',"\xc8\xb6"=>'t',"\xc8\xb7"=>'j',
+			"\xc8\xb8"=>'db',"\xc8\xb9"=>'qp',"\xc8\xbc"=>'c',"\xc8\xbf"=>'s',
+			"\xc9\x80"=>'z',"\xc9\x82"=>'t',"\xc9\x87"=>'e',"\xc9\x89"=>'j',"\xc9\x8b"=>'q',
+			"\xc9\x8d"=>'r',"\xc9\x8f"=>'y',
+			
+			// combining marks U+0300 to U+036F (strip them out)
+			"\xcc\x80"=>'',"\xcc\x81"=>'',"\xcc\x82"=>'',"\xcc\x83"=>'',"\xcc\x84"=>'',
+			"\xcc\x85"=>'',"\xcc\x86"=>'',"\xcc\x87"=>'',"\xcc\x88"=>'',"\xcc\x89"=>'',
+			"\xcc\x8a"=>'',"\xcc\x8b"=>'',"\xcc\x8c"=>'',"\xcc\x8d"=>'',"\xcc\x8e"=>'',
+			"\xcc\x8f"=>'',"\xcc\x90"=>'',"\xcc\x91"=>'',"\xcc\x92"=>'',"\xcc\x93"=>'',
+			"\xcc\x94"=>'',"\xcc\x95"=>'',"\xcc\x96"=>'',"\xcc\x97"=>'',"\xcc\x98"=>'',
+			"\xcc\x99"=>'',"\xcc\x9a"=>'',"\xcc\x9b"=>'',"\xcc\x9c"=>'',"\xcc\x9d"=>'',
+			"\xcc\x9e"=>'',"\xcc\x9f"=>'',"\xcc\xa0"=>'',"\xcc\xa1"=>'',"\xcc\xa2"=>'',
+			"\xcc\xa3"=>'',"\xcc\xa4"=>'',"\xcc\xa5"=>'',"\xcc\xa6"=>'',"\xcc\xa7"=>'',
+			"\xcc\xa8"=>'',"\xcc\xa9"=>'',"\xcc\xaa"=>'',"\xcc\xab"=>'',"\xcc\xac"=>'',
+			"\xcc\xad"=>'',"\xcc\xae"=>'',"\xcc\xaf"=>'',"\xcc\xb0"=>'',"\xcc\xb1"=>'',
+			"\xcc\xb2"=>'',"\xcc\xb3"=>'',"\xcc\xb4"=>'',"\xcc\xb5"=>'',"\xcc\xb6"=>'',
+			"\xcc\xb7"=>'',"\xcc\xb8"=>'',"\xcc\xb9"=>'',"\xcc\xba"=>'',"\xcc\xbb"=>'',
+			"\xcc\xbc"=>'',"\xcc\xbd"=>'',"\xcc\xbe"=>'',"\xcc\xbf"=>'',"\xcd\x80"=>'',
+			"\xcd\x81"=>'',"\xcd\x82"=>'',"\xcd\x83"=>'',"\xcd\x84"=>'',"\xcd\x85"=>'',
+			"\xcd\x86"=>'',"\xcd\x87"=>'',"\xcd\x88"=>'',"\xcd\x89"=>'',"\xcd\x8a"=>'',
+			"\xcd\x8b"=>'',"\xcd\x8c"=>'',"\xcd\x8d"=>'',"\xcd\x8e"=>'',"\xcd\x8f"=>'',
+			"\xcd\x90"=>'',"\xcd\x91"=>'',"\xcd\x92"=>'',"\xcd\x93"=>'',"\xcd\x94"=>'',
+			"\xcd\x95"=>'',"\xcd\x96"=>'',"\xcd\x97"=>'',"\xcd\x98"=>'',"\xcd\x99"=>'',
+			"\xcd\x9a"=>'',"\xcd\x9b"=>'',"\xcd\x9c"=>'',"\xcd\x9d"=>'',"\xcd\x9e"=>'',
+			"\xcd\x9f"=>'',"\xcd\xa0"=>'',"\xcd\xa1"=>'',"\xcd\xa2"=>'',"\xcd\xa3"=>'',
+			"\xcd\xa4"=>'',"\xcd\xa5"=>'',"\xcd\xa6"=>'',"\xcd\xa7"=>'',"\xcd\xa8"=>'',
+			"\xcd\xa9"=>'',"\xcd\xaa"=>'',"\xcd\xab"=>'',"\xcd\xac"=>'',"\xcd\xad"=>'',
+			"\xcd\xae"=>'',"\xcd\xaf"=>'',
+			
+			);
+			
+		$str = strtr($str, $transtable);
+		return $str;
+	}
+	
 	function tolower()
 	// surprisingly fast
 	// this is about 10 times faster than strtolower for ascii-only strings,
 	// and only about 1.2 times slower than it for unicode
-	// note: only selected unicode chars below 0x241 are translated, may need amendments
+	// note: only selected unicode chars below 0x24f are translated, may need amendments
 	{
 		// optimise - use ascii tolower when characters \xc3 through \xc9 not present
 		if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
@@ -156,6 +248,37 @@ class utf8_string
 		
 		return strtolower($this->string);
 	}
+	
+	/*
+	function normalspace()
+	// normalises spaces and some punctuation so that only words and digits, and punc
+	// that may have some meaning, remains, separated by single spaces where anything
+	// was removed.
+	{
+		static $wschars = array(     
+			// brief list of word separating chars (insignificant whitespace and some punc.)
+			"\xc2\xa6"=>' ',"\xc2\xa8"=>' ',"\xc2\xab"=>' ',"\xc2\xb1"=>' ',"\xc2\xb4"=>' ',
+			"\xc2\xb7"=>' ',"\xc2\xbb"=>' ',"\xca\xb9"=>' ',"\xca\xba"=>' ',"\xca\xbb"=>' ',
+			"\xca\xbc"=>' ',"\xca\xbd"=>' ',"\xca\xbe"=>' ',"\xca\xbf"=>' ',"\xcb\x80"=>' ',
+			"\xcb\x81"=>' ',"\xcb\x82"=>' ',"\xcb\x83"=>' ',"\xcb\xae"=>' ',"\xcc\x80"=>' ',
+			"\xcc\x81"=>' ',"\xcc\x8b"=>' ',"\xcc\x8d"=>' ',"\xcc\x8e"=>' ',"\xcc\x8f"=>' ',
+			"\xcc\x92"=>' ',"\xcc\x93"=>' ',"\xcc\x94"=>' ',"\xcc\x95"=>' ',"\xcc\x96"=>' ',
+			"\xcc\x97"=>' ',"\xcc\x9b"=>' ',"\xcd\x80"=>' ',"\xcd\x81"=>' ',"\xcd\x91"=>' ',
+			"\xcc\x97"=>' ',"\xcd\xb4"=>' ',"\xcd\xb5"=>' ',"\xce\x84"=>' ',"\xdf\xb4"=>' ',
+			"\xdf\xb5"=>' ',"\xe2\x80\x98"=>' ',"\xe2\x80\x99"=>' ',"\xe2\x80\x9a"=>' ',
+			"\xe2\x80\x9b"=>' ',"\xe2\x80\x9c"=>' ',"\xe2\x80\x9d"=>' ',"\xe2\x80\x9e"=>' ',
+			"\xe2\x80\x9f"=>' ',"\xe2\x80\xb2"=>' ',"\xe2\x80\xb3"=>' ',"\xe2\x80\xb4"=>' ',
+			"\xe2\x80\xb5"=>' ',"\xe2\x80\xb6"=>' ',"\xe2\x80\xb7"=>' ',"\xe2\x9d\x9b"=>' ',
+			"\xe2\x9d\x9c"=>' ',"\xe2\x9d\x9d"=>' ',"\xe2\x9d\x9e"=>' ',
+			// ascii
+			"\n"=>' ',"\r"=>' ',"\t"=>' ',"\""=>' ',"("=>' ',")"=>' ',','=>' ','.'=>' ',
+			':'=>' ',';'=>' ','`'=>' ',
+			
+			"'"=>'',
+			
+			);
+	}
+	*/
 	
 	function words()
 	// constant rate of around 0.25 seconds per megabyte
@@ -301,6 +424,14 @@ class utf8_string
 }
 
 /*
+for ($i = 0x300; $i <= 0x36f; $i++)
+{
+	$char = utf8_string::chr($i);
+	echo '"\\x' . bin2hex($char[0]) . '\\x' . bin2hex($char[1]) . '"=>\'\',';
+}
+*/
+
+/*
 $random = '';
 for ($i = 0; $i < 100; $i++)
 	$random .= utf8_string::chr(mt_rand(40, 60) + (300 * mt_rand(0,1)) + (6000 * mt_rand(0,1)));
@@ -320,7 +451,7 @@ echo "ready\n";
 list($sec, $usec) = explode(' ', microtime());
 
 for ($i = 0; $i < 10; $i++)
-	$result = $str->filter(true);
+	$result = $str->words(true);
 	
 list($xsec, $xusec) = explode(' ', microtime());
 $elapsed = ($xsec - $sec) + ($xusec - $usec);
