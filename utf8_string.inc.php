@@ -25,6 +25,10 @@
 // the ascii range, so the overhead on most english and european content will be
 // low.
 
+// 20090309: 
+// words() has been removed from this class; it can now be found in the
+// normaltext() class
+
 class utf8_string
 {
 	function utf8_string($string = NULL)
