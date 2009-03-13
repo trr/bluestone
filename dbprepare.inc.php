@@ -29,17 +29,19 @@
 class dbprepare
 {
 	//public
-	function dbprepare(&$db)
+	function dbprepare(&$db, $defaultengine='MyISAM', $defaultcollation='utf8_general_ci')
+	// if you are not using UTF-8, remember to change the default charset and collation
 	{
 		$this->db = &$db;
-
+		
 		$this->prefix = $this->db->get_prefix();
 		
 		$this->errorcallback = null;
 		
 		$this->suppressbigchanges = true;
 		
-		$this->defaultengine = 'MyISAM';
+		$this->defaultengine = $defaultengine;
+		$this->defaultcollation = $defaultcollation;
 	}
 	
 	function seterrorcallback($callback)
@@ -83,8 +85,9 @@ class dbprepare
 			$fields = isset($val['fields']) ? $val['fields'] : array();
 			$indexes = isset($val['indexes']) ? $val['indexes'] : array();
 			$isheap = !empty($val['isheap']);
+			$collation = !empty($val['collation']) ? $val['collation'] : $this->defaultcollation;
 			
-			$this->prepare($table, $fields, $indexes, $isheap);
+			$this->prepare($table, $fields, $indexes, $isheap, $collation);
 		}
 		
 		// get tables
@@ -95,6 +98,7 @@ class dbprepare
 		while ($row = $this->db->fetch_array()) $tables[] = $row['Name'];
 		$this->db->free_result();
 		
+		// check for any unexpected tables
 		foreach ($tables as $table) if (strlen($table) > strlen($this->prefix)
 			&& substr($table, 0, strlen($this->prefix)) == $this->prefix)
 		{
@@ -169,7 +173,7 @@ class dbprepare
 			$this->seterror("Table {$this->prefix}{$table}: $changedrows rows added or updated", 'changed');	
 	}
 
-	function prepare($table, $fields, $indexes, $heap = false)
+	function prepare($table, $fields, $indexes, $heap = false, $collation = null)
 	// Creates the table with given fields and indexes if it doesn't exist,
 	// makes sure it has the given fields and indexes if it does exist
 	// extra fields/indexes in the table but not in the parameters are left intact
@@ -203,16 +207,20 @@ class dbprepare
 	// TODO: adding a unique or primary key can cause a mysql error if there
 	// are duplicate values already existing for those fields
 	{		
+		if (empty($collation)) $collation = $this->defaultcollation;
+		
 		// see if table exists already
 		$tablestatus = $this->gettablestatus($table);
 		
+		
 		if ($tablestatus === null)
-			return $this->create($table, $fields, $indexes, $heap);
+			return $this->create($table, $fields, $indexes, $heap, $collation);
 			
 		// otherwise table exists
 		$currentfields = $this->getfields($table);
 		$currentindexes = $this->getindexes($table);
 		$currentisheap = strcasecmp($tablestatus['Engine'], 'HEAP') == 0 || strcasecmp($tablestatus['Engine'], 'MEMORY') == 0;
+		$currentcollation = $tablestatus['Collation'];
 		
 		$alterclauses = array();
 		
@@ -224,6 +232,9 @@ class dbprepare
 		$lastfield = '';
 		foreach ($fields as $fieldname => $val)
 		{
+			if (empty($val[4]) && !empty($valcmp[4]))
+				$val[4] = $this->defaultcollation;
+			
 			if (!isset($currentfields[$fieldname]))
 			{
 				// need to add field
@@ -364,7 +375,6 @@ class dbprepare
 						}
 						else
 						{
-							// TODO smarter conversion between types ie blog=>longblob etc 	
 							$this->seterror("Field $fieldname in table {$this->prefix}{$table} should be of type $val[0], but is of type $valcmp[0]", 'warning');
 						}
 					}
@@ -422,6 +432,24 @@ class dbprepare
 						if (!empty($val[3])) $valnew[1] = null; // remove default on auto_inc even if 0
 					}
 				}
+				
+				// check collation
+				if ($this->hascollation($valnew[0]))
+				{
+					$fieldcollation = empty($val[4]) ? $collation : $val[4];
+					
+					if (!empty($valcmp[4]) && strtolower($valcmp[4]) != strtolower($fieldcollation))
+					{
+						if ($suppress)
+							$this->seterror("Need to change collation from $valcmp[4] to $val[4] in column $fieldname in table {$this->prefix}{$table}", 'suppressed');
+						else
+						{
+							$this->seterror("Table {$this->prefix}{$table}: Column $fieldname: Collation changed from $valcmp[4] to $fieldcollation", 'changed');
+							$valnew[4] = $fieldcollation;
+						}					
+					}
+				}
+				
 				if ($valnew != $valcmp)
 				{
 					$def = $this->getcolumndefinition($fieldname, $valnew);
@@ -488,11 +516,25 @@ class dbprepare
 				$this->seterror("Need to modify engine type of table {$this->prefix}{$table} to $engine", 'suppressed');
 			else
 			{
-			  $this->seterror("Table {$this->prefix}{$table}: Engine changed to $engine", 'changed');
+				$this->seterror("Table {$this->prefix}{$table}: Engine changed to $engine", 'changed');
 				$alterclauses[] = "ENGINE = $engine";
 			}
-		}	
+		}
 		
+		// compare collation
+		if ($currentcollation != $collation)
+		{
+			if ($suppress)
+				 $this->seterror("Need to modify collation of table {$this->prefix}{$table} to $collation", 'suppressed');
+			else
+			{
+				$this->seterror("Table {$this->prefix}{$table}: Collation changed to $collation");
+				$charset = $this->getcharset($collation);
+				$alterclauses[] = "DEFAULT CHARACTER SET $charset COLLATE $collation";
+			}
+		}
+		
+
 		if (empty($alterclauses)) return true;
 		
 		$alterclausestext = implode(",\n\t\t\t\t", $alterclauses);
@@ -544,11 +586,29 @@ class dbprepare
 	function getcolumndefinition($fieldname, $val)
 	// gets column definition in SQL from $field value
 	{
-    $type = $val[0];    
+		$type = $val[0];    
 		$defaultval = !isset($val[1]) ? '' : ("DEFAULT '" . addslashes($val[1]) . "'");
 		$notnull = !empty($val[2]) ? '' : 'NOT NULL';
 		$autoinc = empty($val[3]) ? '' : 'AUTO_INCREMENT';
-		return "`$fieldname` $type $notnull $defaultval $autoinc";		
+		if ($this->hascollation($type))
+		{
+			$collation = isset($val[4]) ? addslashes($val[4]) : $this->defaultcollation;
+			$charset = $this->getcharset($collation);
+			$charsetstring = "CHARACTER SET $charset COLLATE $collation";
+		}
+		else
+			$charsetstring = '';
+		return "`$fieldname` $type $charsetstring $notnull $defaultval $autoinc";		
+	}
+	
+	protected function hascollation($type)
+	{
+		list($typename) = explode('(', $type);
+		static $colltypes = array(
+			'char' => true, 'varchar' => true, 'tinytext' => true, 'text' => true,
+			'mediumtext' => true, 'longtext' => true, 'enum' => true, 'set' => true,
+			);
+		return !empty($colltypes[$typename]);
 	}
 	
 	// protected
@@ -567,7 +627,7 @@ class dbprepare
 	}
 	
 	// public
-	function create($table, $fields, $indexes, $heap = false)
+	function create($table, $fields, $indexes, $heap = false, $collation = null)
 	// this function, or indeed any functions in this class, will not take
 	// responsibility for checking that the table, column and index names are
 	// valid.  None of these should be used with untrusted human input.
@@ -575,6 +635,8 @@ class dbprepare
 	// setting a default value for a TEXT column or something.  This will
 	// just fail
 	{
+		if (empty($collation)) $collation = $this->defaultcollation;
+		
 		$createdefinitions = array();
 		
 		// do fields
@@ -588,6 +650,7 @@ class dbprepare
 		$createdeftext = implode(",\n\t\t\t\t", $createdefinitions);
 		
 		$engine = $heap ? 'MEMORY' : $this->defaultengine;
+		$charset = $this->getcharset($collation);
 		
 		$this->db->query("
 			CREATE TABLE `{$this->prefix}{$table}`
@@ -595,6 +658,7 @@ class dbprepare
 				$createdeftext
 			)
 			ENGINE = $engine
+			CHARACTER SET $charset COLLATE $collation
 			");
 			
 		$this->seterror("Table {$this->prefix}{$table} created", 'changed');									
@@ -623,7 +687,7 @@ class dbprepare
 	// returns the fields of a table in the same format as $fields in prepare()
 	{
 		$this->db->query("
-			SHOW COLUMNS FROM `{$this->prefix}{$table}`
+			SHOW FULL COLUMNS FROM `{$this->prefix}{$table}`
 			");
 		$fields = array();
 		while ($row = $this->db->fetch_array())
@@ -640,7 +704,8 @@ class dbprepare
 				$default,
 				strcasecmp($row['Null'], 'YES') == 0 ? 'allownulls' : false,
 				strpos(strtolower($row['Extra']), 'auto_increment') === false ? false :
-					'auto_increment'
+					'auto_increment',
+				$row['Collation'],
 				);
 
 		} 
@@ -687,6 +752,7 @@ class dbprepare
 			");
 		$tables = array();
 		$engines = array();
+		$collations = array();
 		while ($row = $this->db->fetch_array())
 		{
 			$tablename = $row['Name'];
@@ -696,6 +762,7 @@ class dbprepare
 				$table = substr($tablename, strlen($this->prefix));
 				$tables[] = $table;
 				$engines[$table] = $row['Engine'];
+				$collations[$table] = !empty($row['Collation']) ? $row['Collation'] : null;
 			}
 		}
 		$output = "\$tabledefs = array();\n";
@@ -704,32 +771,37 @@ class dbprepare
 		{
 			$fields = $this->getfields($table);
 			$indexes = $this->getindexes($table);
-			$isheap = (strcasecmp($engines[$table], 'HEAP') == 0 || strcasecmp($engines[$table], 'MEMORY') == 0) ? true : false;
-			
+			$isheap = (strcasecmp($engines[$table], 'HEAP') == 0 || strcasecmp($engines[$table], 'MEMORY') == 0);
+			$tablecollation = $collations[$table];
+
 			$output .= "\n/* $table */\n";
-		
-		  // print fields
+
+			// print fields
 			$output .= "\n\$tabledefs['$table']['fields'] = array(\n";
-			
+
 			$namelen = 0;
 			foreach ($fields as $fieldname => $val)
 				$namelen = max($namelen, strlen($fieldname));
 			
 			foreach ($fields as $fieldname => $val)
-		  {
+			{
+				$collationoverride = !empty($val[4]) && $this->hascollation($val[0]) && $val[4] != $tablecollation;
+				
 				$output .= str_pad("\t" . var_export($fieldname, true), $namelen + 4);
 				$output .= "=> array(" . var_export($val[0], true);
-				if (isset($val[1]) || $val[2] != false || $val[3] != false)
+				if (isset($val[1]) || $val[2] != false || $val[3] != false || $collationoverride)
 					$output .= ', ' . var_export($val[1], true);
-				if ($val[2] != false || $val[3] != false)
+				if ($val[2] != false || $val[3] != false || $collationoverride)
 					$output .= ', ' . ($val[2] ? 'NULL' : 'false');
-				if ($val[3] != false)
+				if ($val[3] != false || $collationoverride)
 					$output .= ', ' . ($val[3] ? "'AUTO_INCREMENT'" : 'false');
+				if ($collationoverride)
+					$output .= ', ' . var_export($val[4], true);
 				$output .= "),\n";
-		  }
-		  $output .= "\t);\n";
-		  
-		  // print indexes
+			}
+			$output .= "\t);\n";
+
+			// print indexes
 			$output .= "\$tabledefs['$table']['indexes'] = array(\n";
 			
 			$namelen = 0;
@@ -737,27 +809,31 @@ class dbprepare
 				$namelen = max($namelen, strlen($indexname));
 			
 			foreach ($indexes as $indexname => $val)
-		  {
+			{
 				$output .= str_pad("\t" . var_export($indexname, true), $namelen + 4);
 				$output .= "=> array(" . var_export($val[0], true);
 				$output .= ', ' . var_export($val[1], true);
 				$output .= "),\n";
-		  }
-		  $output .= "\t);\n";
-		  
-		  // print isheap
-		  if ($isheap)
+			}
+			$output .= "\t);\n";
+
+			// print isheap
+			if ($isheap)
 				$output .= "\$tabledefs['$table']['isheap'] = true;\n";
-			
-		  
+				
+			if (!empty($tablecollation) && $tablecollation != $this->defaultcollation)
+				$output .= "\$tabledefs['$table']['collation'] = " . var_export($tablecollation, true) . ";\n";
 		}
 		return $output;
 	}
 	
+	private function getcharset($collation)
+	// gets charset from collation
+	{
+		list($charset) = explode('_', $collation);
+		return $charset;
+	}
 		
-	// protected
-
-	// private
 	var $db;
 	var $prefix;
 	
