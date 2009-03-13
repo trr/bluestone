@@ -39,6 +39,8 @@ class db_connection
 	//  'pass' => password of connection
 	//  'prefix' => prefix of connection
 	{
+		if (!function_exists('mysql_connect')) trigger_error('PHP does not appear to have mysql extension', E_USER_ERROR);
+		
 		$this->num_queries = 0;
 		$this->prefix = isset($dbsettings['prefix']) ? $dbsettings['prefix'] : '';
 		
