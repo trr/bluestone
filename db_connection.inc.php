@@ -29,15 +29,16 @@ class db_connection
 	
 	function db_connection($dbsettings)
 	// tries to make a connection to the server.
-	// returns true on success, false on error
+	// if an error occurs, is_connected() will return false and get_error() will return an error message
 	
 	// expects $dbsettings to be an array:
-	//  'persistent' => true/false, false recommended
+	//  'persistent' => true/false - optional, defaults to false (recommended)
 	//  'server' => server hostname
 	//  'database' => database to choose
 	//  'user' => username of connection
 	//  'pass' => password of connection
-	//  'prefix' => prefix of connection
+	//  'prefix' => table name prefix of connection - optional, defaults to ''
+	//  'charset' => charset of connection (eg 'utf8') - optional, default set by mysql?
 	{
 		if (!function_exists('mysql_connect')) trigger_error('PHP does not appear to have mysql extension', E_USER_ERROR);
 		
@@ -52,22 +53,28 @@ class db_connection
 				@mysql_connect($dbsettings['server'], $dbsettings['user'], $dbsettings['pass']);
 
 		if (!$this->connection)
+			return $this->set_error('Database connection failed');
+		
+		if (!empty($dbsettings['database']))
 		{
-			$this->set_error('Database connection failed');
-			return false;
+			$dbselect = mysql_select_db($dbsettings['database'], $this->connection);
+			if(!$dbselect)
+			{
+				mysql_close($this->connection);
+				$this->connection = false;
+				return $this->set_error('Database selection failed');
+			}
 		}
 		
-		if (!isset($dbsettings['database'])) return true;
-		$dbselect = mysql_select_db($dbsettings['database']);
-		if(!$dbselect)
+		if (!empty($dbsettings['charset']))
 		{
-			mysql_close($this->db_connect_id);
-			$this->connection = false;
-			$this->set_error('Database selection failed');
-			return false;
+			if (!mysql_set_charset($dbsettings['charset'], $this->connection))
+			{
+				mysql_close($this->connection);
+				$this->connection = false;
+				return $this->set_error('Connection character set/collation selection failed');
+			}
 		}
-		
-		return true;
 	}
 	
 	function close()
@@ -93,6 +100,13 @@ class db_connection
 	// returns true if there is a connection, otherwise false
 	{
 		return $this->connection ? true : false;
+	}
+	
+	function escape($string)
+	// escaping in this way, instead of addslashes(), is important if using 
+	// multi-byte charsets other than utf-8
+	{ 
+		return mysql_real_escape_string($string, $this->connection);
 	}
 	
 	function query($query)
