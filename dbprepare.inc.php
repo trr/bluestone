@@ -528,7 +528,7 @@ class dbprepare
 				 $this->seterror("Need to modify collation of table {$this->prefix}{$table} to $collation", 'suppressed');
 			else
 			{
-				$this->seterror("Table {$this->prefix}{$table}: Collation changed to $collation");
+				$this->seterror("Table {$this->prefix}{$table}: Collation changed to $collation", 'changed');
 				$charset = $this->getcharset($collation);
 				$alterclauses[] = "DEFAULT CHARACTER SET $charset COLLATE $collation";
 			}
