@@ -1,7 +1,7 @@
 <?php
 
 /*
-	normaltext - class for normalisation, word separation, stemming of UTF-8 text
+	textnormal - class for normalisation, word separation, stemming of UTF-8 text
 	Copyright (c) 2004, 2009 Thomas Rutter
 	
 	This file is part of Bluestone.
@@ -27,9 +27,9 @@
 if (!defined('BLUESTONE_DIR')) define('BLUESTONE_DIR', dirname(__FILE__) . '/');
 require_once(BLUESTONE_DIR . 'utf8_string.inc.php');
 
-class normaltext
+class textnormal
 {
-	function normaltext($string = NULL)
+	function textnormal($string = NULL)
 	// can accept a plain string or utf8_string object
 	{
 		if (is_string($string))
@@ -79,17 +79,17 @@ class normaltext
 			'`'=>' ` ',
 			);
 			
-		if ($letters && !$isascii) $replacetable += normaltext::$normalletterstable;
+		if ($letters && !$isascii) $replacetable += textnormal::$normalletterstable;
 		
-		if ($space) $replacetable += normaltext::$spacecharsascii;
-		if ($space && !$isascii) $replacetable += normaltext::$spacecharstable;
+		if ($space) $replacetable += textnormal::$spacecharsascii;
+		if ($space && !$isascii) $replacetable += textnormal::$spacecharstable;
 		
 		// dashes must come after space
-		if ($dashes) $replacetable += normaltext::$dashcharsascii;
-		if ($dashes&& !$isascii) $replacetable += normaltext::$dashcharstable;
+		if ($dashes) $replacetable += textnormal::$dashcharsascii;
+		if ($dashes&& !$isascii) $replacetable += textnormal::$dashcharstable;
 		
-		if ($punc) $replacetable += normaltext::$punccharsascii;
-		if ($punc&& !$isascii) $replacetable += normaltext::$punccharstable;
+		if ($punc) $replacetable += textnormal::$punccharsascii;
+		if ($punc&& !$isascii) $replacetable += textnormal::$punccharstable;
 				
 		$str = strtr($str, $replacetable);
 		
@@ -370,7 +370,7 @@ for ($i = 0; $i < 4200; $i++)
 	$text .= "The quick brown fox www.abc.com 65.5 $random";
 	
 $str = new utf8_string($text);
-$str = new normaltext($str->filter());
+$str = new textnormal($str->filter());
 $str->setwebchars(false);
 
 echo strlen($text);
