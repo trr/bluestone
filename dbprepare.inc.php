@@ -144,7 +144,9 @@ class dbprepare
 				if (is_int($val) || is_float($val))
 					$set .= (string)$val;
 				elseif (is_bool($val))
-					$sel .= ($val ? '1' : '0');
+					$set .= ($val ? '1' : '0');
+				elseif ($val === null)
+					$set .= 'NULL';
 				else
 					$set .= "'" . addslashes((string)$val) . "'";
 				$sets[] = $set;
