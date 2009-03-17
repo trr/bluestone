@@ -257,7 +257,7 @@ class dbprepare
 				$alterclauses[] = "ENGINE = $engine";
 			}
 		}
-		elseif (strtoupper($tablestatus['Engine']) != strtoupper($this->defaultengine))
+		elseif (!$heap && strtoupper($tablestatus['Engine']) != strtoupper($this->defaultengine))
 		{
 			// only bother to change mismatch if it is necessary for a fulltext index (works only on MyISAM)
 			$changed = false;
