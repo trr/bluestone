@@ -75,7 +75,7 @@ class dbprepare
 	
 	function preparemultiple($tabledefs)
 	// $tabledefs is an array of
-	// 		$table => array('fields' => $fields, 'indexes' => $indexes, 'ishead' => $heap), ...
+	// 		$table => array('fields' => $fields, 'indexes' => $indexes, 'isheap' => $heap), ...
 	// it allows you to prepare() multiple tables at once.
 	// will also check and issue notice for other tables in db with same prefix
 	// that weren't given in $tabledefs
@@ -86,8 +86,9 @@ class dbprepare
 			$indexes = isset($val['indexes']) ? $val['indexes'] : array();
 			$isheap = !empty($val['isheap']);
 			$collation = !empty($val['collation']) ? $val['collation'] : $this->defaultcollation;
+			$preserveindexes = !empty($val['preserveindexes']);
 			
-			$this->prepare($table, $fields, $indexes, $isheap, $collation);
+			$this->prepare($table, $fields, $indexes, $isheap, $collation, $preserveindexes);
 		}
 		
 		// get tables
@@ -175,7 +176,7 @@ class dbprepare
 			$this->seterror("Table {$this->prefix}{$table}: $changedrows rows added or updated", 'changed');	
 	}
 
-	function prepare($table, $fields, $indexes, $heap = false, $collation = null)
+	function prepare($table, $fields, $indexes, $heap = false, $collation = null, $preserveindexes = false)
 	// Creates the table with given fields and indexes if it doesn't exist,
 	// makes sure it has the given fields and indexes if it does exist
 	// extra fields/indexes in the table but not in the parameters are left intact
@@ -206,6 +207,20 @@ class dbprepare
 	// ALTER statements usually copy all rows in the table to a new table, even
 	// parts that are unchanged
 	
+	// $heap signals that the table type should be HEAP or MEMORY.  There are
+	// no other controls for table type; if it is not HEAP/MEMORY (they are synonyms)
+	// then it will be left as it is, or will default to what was set when this dbprepare
+	// object was created
+	
+	// $collation specifies the collation (which also specifies character set) of the table
+	// this can be overridden on specific fields.  This collation and character set will
+	// apply to the table default, and to any fields not overridden.
+	
+	// By default, pre-existing UNIQUE, PRIMARY or FULLTEXT indexes on the table that
+	// aren't specified may be culled or converted to plain KEY indexes, so that they
+	// cannot interfere with the table (by causing duplicate key errors for example).
+	// Specifying $preserveindexes as true will preserve these.
+	
 	// TODO: adding a unique or primary key can cause a mysql error if there
 	// are duplicate values already existing for those fields
 	{		
@@ -221,14 +236,70 @@ class dbprepare
 		// otherwise table exists
 		$currentfields = $this->getfields($table);
 		$currentindexes = $this->getindexes($table);
-		$currentisheap = strcasecmp($tablestatus['Engine'], 'HEAP') == 0 || strcasecmp($tablestatus['Engine'], 'MEMORY') == 0;
+		if (strtoupper($tablestatus['Engine']) == 'HEAP') $tablestatus['Engine'] = 'MEMORY';
+		$currentisheap = strcasecmp($tablestatus['Engine'], 'MEMORY') == 0;
 		$currentcollation = $tablestatus['Collation'];
 		
 		$alterclauses = array();
-		
-		
+
 		$suppress = $this->suppressbigchanges && ($tablestatus['Data_length'] + $tablestatus['Index_length']) > 4194304; 
-			// tables over 4mb will be slow for most ALTER actions
+		// tables over 4mb will be slow for most ALTER actions
+		
+		// compare storage engine
+		if ($currentisheap != $heap)
+		{
+			$engine = $heap ? "MEMORY" : $this->defaultengine;
+			if ($suppress)
+				$this->seterror("Need to modify engine type of table {$this->prefix}{$table} to $engine", 'suppressed');
+			else
+			{
+				$this->seterror("Table {$this->prefix}{$table}: Engine changed to $engine", 'changed');
+				$alterclauses[] = "ENGINE = $engine";
+			}
+		}
+		elseif (strtoupper($tablestatus['Engine']) != strtoupper($this->defaultengine))
+		{
+			// only bother to change mismatch if it is necessary for a fulltext index (works only on MyISAM)
+			$changed = false;
+			if (strtoupper($this->defaultengine) == 'MYISAM')
+				foreach ($indexes as $name => $val)
+					if (strtoupper(trim($val[0])) == 'FULLTEXT')
+			{
+				if ($suppress)
+					$this->seterror("Need to modify storage engine of table {$this->prefix}{$table} to MyISAM", 'suppressed');
+				else
+				{
+					$this->seterror("Table {$this->prefix}{$table}: Storage engine changed to MyISAM", 'changed');
+					$alterclauses[] = "ENGINE = MyISAM";
+				}
+				$changed = true;
+				break;
+			}
+			if (!$changed)
+			{
+				$expected = $heap ? "MEMORY" : $this->defaultengine;
+				$this->seterror("Storage engine of table {$this->prefix}{$table} is {$tablestatus['Engine']} rather than expected $expected.");
+			}
+		}
+		
+		// compare collation
+		if ($currentcollation != $collation)
+		{
+			if ($suppress)
+				 $this->seterror("Need to modify collation of table {$this->prefix}{$table} to $collation", 'suppressed');
+			else
+			{
+				$this->seterror("Table {$this->prefix}{$table}: Collation changed to $collation", 'changed');
+				$charset = $this->getcharset($collation);
+				$alterclauses[] = "DEFAULT CHARACTER SET $charset COLLATE $collation";
+			}
+		}
+		
+		// check unexpected fields
+		foreach ($currentfields as $fieldname => $val) if (!isset($fields[$fieldname]))
+		{
+			$this->seterror("Unexpected field $fieldname in table {$this->prefix}{$table} may not be needed");
+		}
 		
 		// compare fields
 		$lastfield = '';
@@ -461,10 +532,54 @@ class dbprepare
 			$lastfield = $fieldname;
 		}
 		
-		// check unexpected fields
-		foreach ($currentfields as $fieldname => $val) if (!isset($fields[$fieldname]))
+		// check unexpected indexes
+		foreach ($currentindexes as $indexname => $val)
 		{
-			$this->seterror("Unexpected field $fieldname in table {$this->prefix}{$table} may not be needed");
+			if (!isset($indexes[$indexname]))
+			{
+				if ($preserveindexes)
+					$this->seterror("Unexpected index $indexname in table {$this->prefix}{$table} may not be needed");
+				else
+				{
+					// see if it's a duplicate index, if so delete it
+					$dropped = false;
+					$compareindexes = array_merge($currentindexes, $indexes);
+					unset($compareindexes[$indexname]);
+					foreach ($compareindexes as $name => $inval)
+						if ($this->isfulltext($val[0]) == $this->isfulltext($inval[0])
+							&& strtolower(trim(str_replace(' ', '', $inval[1]))) == strtolower(trim(str_replace(' ', '', $val[1]))))
+					{
+						if ($suppress)
+							$this->seterror("Need to drop duplicate index $indexname on fields $val[1] from table {$this->prefix}{$table}", 'suppressed');
+						else
+						{
+							unset($currentindexes[$indexname]);
+							$this->seterror("Table {$this->prefix}{$table}: Duplicate index $indexname removed", 'changed');
+							$alterclauses[] = "DROP INDEX `$indexname`";
+						}
+						$dropped = true;
+						break;
+					}
+					// see if it is unique, primary or fulltext, if so delete it
+					if (!$dropped && in_array(trim(strtoupper($val[0])), array('UNIQUE', 'PRIMARY', 'FULLTEXT')))
+					{
+						if ($suppress)
+							$this->seterror("Need to change unexpected index $indexname from type {$val[0]} to type KEY in table {$this->prefix}{$table}", 'suppressed');
+						else
+						{
+							$valnew = $val;
+							$valnew[0] = 'KEY';
+							$currentindexes[$indexname] = $valnew;
+							$this->seterror("Table {$this->prefix}{$table}: Unexpected index $indexname changed to type KEY", 'changed');
+							$what = strtoupper($indexname) == 'PRIMARY' ? 'PRIMARY KEY' : "KEY `$indexname`";
+							$alterclauses[] = "DROP $what";
+							$def = $this->getindexdefinition($indexname, $valnew);
+							$alterclauses[] = "ADD $def";
+						}
+						$this->seterror("Unexpected index $indexname in table {$this->prefix}{$table} may not be needed");
+					}
+				}
+			}
 		}
 		
 		// compare indexes
@@ -502,40 +617,7 @@ class dbprepare
 					}
 				}
 			}
-		}
-		
-		// check unexpected indexes
-		foreach ($currentindexes as $indexname => $val) if (!isset($indexes[$indexname]))
-		{
-			$this->seterror("Unexpected index $indexname in table {$this->prefix}{$table} may not be needed");
-		}
-		
-		// compare storage engine
-		if ($currentisheap != $heap)
-		{
-			$engine = $heap ? "MEMORY" : $this->defaultengine;
-			if ($suppress)
-				$this->seterror("Need to modify engine type of table {$this->prefix}{$table} to $engine", 'suppressed');
-			else
-			{
-				$this->seterror("Table {$this->prefix}{$table}: Engine changed to $engine", 'changed');
-				$alterclauses[] = "ENGINE = $engine";
-			}
-		}
-		
-		// compare collation
-		if ($currentcollation != $collation)
-		{
-			if ($suppress)
-				 $this->seterror("Need to modify collation of table {$this->prefix}{$table} to $collation", 'suppressed');
-			else
-			{
-				$this->seterror("Table {$this->prefix}{$table}: Collation changed to $collation", 'changed');
-				$charset = $this->getcharset($collation);
-				$alterclauses[] = "DEFAULT CHARACTER SET $charset COLLATE $collation";
-			}
-		}
-		
+		}	
 
 		if (empty($alterclauses)) return true;
 		
@@ -547,6 +629,11 @@ class dbprepare
 			");
 			
 		return true;
+	}
+	
+	private function isfulltext($indextype)
+	{
+		return trim(strtoupper($indextype)) == 'FULLTEXT';
 	}
 	
 	// protected
