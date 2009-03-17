@@ -560,23 +560,44 @@ class dbprepare
 						$dropped = true;
 						break;
 					}
-					// see if it is unique, primary or fulltext, if so delete it
-					if (!$dropped && in_array(trim(strtoupper($val[0])), array('UNIQUE', 'PRIMARY', 'FULLTEXT')))
-					{
+					// see if it is unique or primary, if so delete it or convert it to key
+					if (!$dropped && in_array(trim(strtoupper($val[0])), array('UNIQUE', 'PRIMARY')))
+					{						
 						if ($suppress)
 							$this->seterror("Need to change unexpected index $indexname from type {$val[0]} to type KEY in table {$this->prefix}{$table}", 'suppressed');
 						else
 						{
+							$newname = $indexname;
 							$valnew = $val;
 							$valnew[0] = 'KEY';
 							$currentindexes[$indexname] = $valnew;
+							if (strtoupper($indexname) == 'PRIMARY')
+							{
+								for ($i = 1; in_array("old_primary_$i", array_keys($currentindexes)) || in_array("index_$i", array_keys($indexes)); $i++);
+								$newname = "old_primary_$i";
+								$currentindexes[$newname] = $currentindexes[$indexname];
+								unset($currentindexes[$indexname]);
+							}
 							$this->seterror("Table {$this->prefix}{$table}: Unexpected index $indexname changed to type KEY", 'changed');
 							$what = strtoupper($indexname) == 'PRIMARY' ? 'PRIMARY KEY' : "KEY `$indexname`";
 							$alterclauses[] = "DROP $what";
-							$def = $this->getindexdefinition($indexname, $valnew);
+							$def = $this->getindexdefinition($newname, $valnew);
 							$alterclauses[] = "ADD $def";
+							$indexname = $newname;
 						}
 						$this->seterror("Unexpected index $indexname in table {$this->prefix}{$table} may not be needed");
+					}
+					// or if it is fulltext, drop it
+					elseif (!$dropped && trim(strtoupper($val[0])) == 'FULLTEXT')
+					{
+						if ($suppress)
+							$this->seterror("Need to drop unexpected FULLTEXT index $indexname in table {$this->prefix}{$table}", 'suppressed');
+						else
+						{
+							unset($currentindexes[$indexname]);
+							$this->seterror("Table {$this->prefix}{$table}: Unexpected FULLTEXT index $indexname dropped", 'changed');
+							$alterclauses[] = "DROP KEY `$indexname`";
+						}
 					}
 				}
 			}
