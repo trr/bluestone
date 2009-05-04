@@ -902,7 +902,7 @@ class dbprepare
 				if (isset($val[1]) || $val[2] != false || $val[3] != false || $collationoverride)
 					$output .= ', ' . var_export($val[1], true);
 				if ($val[2] != false || $val[3] != false || $collationoverride)
-					$output .= ', ' . ($val[2] ? 'NULL' : 'false');
+					$output .= ', ' . ($val[2] ? 'true' : 'false');
 				if ($val[3] != false || $collationoverride)
 					$output .= ', ' . ($val[3] ? "'AUTO_INCREMENT'" : 'false');
 				if ($collationoverride)
