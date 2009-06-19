@@ -38,44 +38,53 @@ class debug
     $this->debugmode = $debugmode;
 		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
   }
-	
-	function notice($module, $notice, $data = NULL)
+
+	function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
 	// or 'global' if in global scope
-	// error is name of error
-	// description is a name for this error
+	// notice is name of notice
+	// description is a name for this notice
 	{
-	  if ($this->debugmode)
+		if ($this->debugmode)
 		{
-		  list($sec, $usec) = explode(' ', microtime());
-			$elapsed_sec = $sec - $this->starttime_sec;
-			$elapsed_usec = $usec - $this->starttime_usec;
-			$elapsed = (float)$elapsed_sec + (float)$elapsed_usec;
+			list($sec, $usec) = explode(' ', microtime());
+			$elapsed = (float)($sec - $this->starttime_sec) + (float)($usec - $this->starttime_usec);
 		}
-		else $elapsed = NULL;
-	  $this->notices[++$this->noticeid] = array('module' => $module, 'notice' => $notice, 'data' => $data, 'elapsed' => $elapsed, 'taskelapsed' => NULL);
+		else
+			$elapsed = null;
+
+		$this->noticetime = array($sec, $usec);
+		$this->notices[++$this->noticeid] = array(
+			'module' => $module,
+			'notice' => $notice,
+			'data' => (strlen($data) > (1024*512)) ? (substr($data, 0, (1024*512) - 15) . '... (truncated)') : $data,
+			'elapsed' => $elapsed,
+			'taskelapsed' => null
+		);
+
+		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
+		if ($this->noticeid > 50)
+		{
+			if (strlen($this->notices[$this->noticeid - 50]['data']) > 80)
+				$this->notices[$this->noticeid - 50]['data'] = substr($this->notices[$this->noticeid - 50]['data'], 0, 65) . '... (truncated)';
+			if ($this->noticeid > 251)
+				unset($this->notices[$this->noticeid - 250]);
+			elseif ($this->noticeid == 251)
+				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => $this->notices[1]['elapsed'], 'taskelapsed' => null);
+		}
 	}
 	
 	function starttask($module, $taskname, $data = NULL)
 	// returns a unique task id
 	{
-	  if ($this->debugmode)
-		{
-			list($sec, $usec) = explode(' ', microtime());
-			$elapsed_sec = $sec - $this->starttime_sec;
-			$elapsed_usec = $usec - $this->starttime_usec;
-			$elapsed = (float)$elapsed_sec + (float)$elapsed_usec;
-		}
-		else
-		{
-		  $sec = NULL;
-			$usec = NULL;
-			$elapsed = NULL;
-		}
-		
-	  $this->tasks[$this->nexttaskid] = array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => ++$this->noticeid);
+		$this->notice($module, $taskname, $data);
 
-    $this->notices[$this->noticeid] = array('module' => $module, 'notice' => $taskname, 'data' => $data, 'elapsed' => $elapsed, 'taskelapsed' => NULL);
+	  if ($this->debugmode)
+			list($sec, $usec) = $this->noticetime;
+		else
+			$sec = $usec = null;
+		
+	  $this->tasks[$this->nexttaskid] = array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
 
     return $this->nexttaskid++;
 	}
@@ -89,17 +98,10 @@ class debug
 		if ($this->debugmode)
 		{
 		  list($sec, $usec) = explode(' ', microtime());
-			$taskelapsed_sec = $sec - $task['starttime_sec'];
-			$taskelapsed_usec = $usec - $task['starttime_usec'];
-			$taskelapsed = (float)$taskelapsed_sec + (float)$taskelapsed_usec;
-			$elapsed_sec = $task['starttime_sec'] - $this->starttime_sec;
-			$elapsed_usec = $task['starttime_usec'] - $this->starttime_usec;
-			$elapsed = (float)$elapsed_sec + (float)$elapsed_usec;
+			$taskelapsed = (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
 		}
 		else
-		{
-		  $taskelapsed = NULL;
-		}
+			$taskelapsed = null;
 		
 		$this->notices[$task['noticeid']]['taskelapsed'] = $taskelapsed;
 		
@@ -172,8 +174,8 @@ class debug
 		  	
 			$totallen = 0; // prevent backtrace being too big
 			foreach ($backtrace as $row)
-		  	{
-		  		if (isset($row['class']) && $row['class'] == 'debug') continue;
+			{
+				if (isset($row['class']) && $row['class'] == 'debug') continue;
 				if ($totallen >= 16384)
 				{
 					$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
@@ -189,7 +191,7 @@ class debug
 					$output = substr($output, 0, 8192) . '... (truncated)';
 				$this->notice('debug', 'backtrace', $output);
 				$totallen += strlen($output);
-		  	}
+			}
 			
 			echo $this->getnoticeshtml();
 			exit;
