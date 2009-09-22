@@ -49,11 +49,11 @@ class debug
 		{
 			list($sec, $usec) = explode(' ', microtime());
 			$elapsed = (float)($sec - $this->starttime_sec) + (float)($usec - $this->starttime_usec);
+			$this->noticetime = array($sec, $usec);
 		}
 		else
 			$elapsed = null;
 
-		$this->noticetime = array($sec, $usec);
 		$this->notices[++$this->noticeid] = array(
 			'module' => $module,
 			'notice' => $notice,
