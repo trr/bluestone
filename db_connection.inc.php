@@ -53,7 +53,7 @@ class db_connection
 				@mysql_connect($dbsettings['server'], $dbsettings['user'], $dbsettings['pass']);
 
 		if (!$this->connection)
-			return $this->set_error('Database connection failed');
+			return $this->set_error('Database connection failed', false);
 		
 		if (!empty($dbsettings['database']))
 		{
@@ -62,17 +62,21 @@ class db_connection
 			{
 				mysql_close($this->connection);
 				$this->connection = false;
-				return $this->set_error('Database selection failed');
+				return $this->set_error('Database selection failed', false);
 			}
 		}
 		
 		if (!empty($dbsettings['charset']))
 		{
-			if (!mysql_set_charset($dbsettings['charset'], $this->connection))
+			$result = function_exists('mysql_set_charset')
+				? mysql_set_charset($dbsettings['charset'], $this->connection)
+				: mysql_query('SET NAMES \'' . $this->escape($dbsettings['charset']) . '\'', $this->connection);
+
+			if (!$result)
 			{
 				mysql_close($this->connection);
 				$this->connection = false;
-				return $this->set_error('Connection character set/collation selection failed');
+				return $this->set_error('Connection character set selection failed, maybe not supported', false);
 			}
 		}
 	}
@@ -82,17 +86,12 @@ class db_connection
 	// returns false if there was no connection, true otherwise
 	{
 		if (!$this->connection)
-		{
-			$this->set_error('Could not close connection; connection not open', E_USER_NOTICE);
-			return false;
-		}
-		if (is_resource($this->result))
-		{
-			@mysql_free_result($this->result);
-			$this->result = NULL;
-		}
+			return $this->set_error('Could not close connection; connection not open', false);
+
+		if (is_resource($this->result)) @mysql_free_result($this->result);
 		mysql_close($this->connection);
 		$this->connection = false;
+		$this->result = null;
 		return true;
 	}
 	
@@ -104,7 +103,7 @@ class db_connection
 	
 	function escape($string)
 	// escaping in this way, instead of addslashes(), is important if using 
-	// multi-byte charsets other than utf-8
+	// multi-byte charsets (other than utf-8 which is safe)
 	{ 
 		return mysql_real_escape_string($string, $this->connection);
 	}
@@ -113,10 +112,8 @@ class db_connection
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	{
 		if (!$this->connection)
-		{
-			$this->set_error('Database query failed; database connection not open');
-			return false;
-		}
+			return $this->set_error('Database query failed; database connection not open');
+
 		$this->num_queries++;
 		if (DEBUG)
 		{
@@ -128,8 +125,7 @@ class db_connection
 			$debug->endtask($taskid);
 		if ($this->result) return $this->result;
 		// or failed
-		$this->set_error('Database query failed; no result was returned');
-		return false;
+		return $this->set_error('Database query failed; no result was returned');
 	}
 	
 	function query_single($query)
@@ -138,10 +134,8 @@ class db_connection
 	// returns results, like a SHOW)
 	{
 		if (!$this->connection)
-		{
-			$this->set_error('Database query failed; database connection not open');
-			return false;
-		}
+			return $this->set_error('Database query failed; database connection not open');
+		
 		// does not remove any pre-existing queries
 		$this->num_queries++;
 		if (DEBUG)
@@ -150,33 +144,24 @@ class db_connection
 			$taskid = $debug->starttask('db_connection', 'query_single()', $query);
 		}
 		$tempresult = mysql_query($query, $this->connection);
-		if (DEBUG)
-		{
-			$debug->endtask($taskid);
-		}
+
+		if (DEBUG) $debug->endtask($taskid);
+
 		if (!is_resource($tempresult))
-		{
-			$this->set_error('Database query failed; no result was returned');
-			return false;
-		}
+			return $this->set_error('Database query failed; no result was returned');
+
 		$array = mysql_fetch_array($tempresult);
-		if ($array)
-		{
-			mysql_free_result($tempresult);
-			return $array;
-		}
-		// or failed
 		mysql_free_result($tempresult);
+		if ($array) return $array;
+
+		// return false if no rows returned
 		return false;
 	}
 	
 	function fetch_array($result = '')
 	{
 		if (!is_resource($result)) $result = $this->result;
-		if (!is_resource($result))
-		{
-			return false;
-		}
+		if (!is_resource($result)) return false;
 
 		$array = mysql_fetch_array($result);
 		if ($array)	return $array;
@@ -187,10 +172,7 @@ class db_connection
 	// return the number of rows affected by the last query like DELETE, UPDATE...
 	{
 		if (!$this->connection)
-		{
-			$this->set_error('Database query failed; database connection not open');
-			return false;
-		}
+			return $this->set_error('Database query failed; database connection not open');
 		
 		return mysql_affected_rows($this->connection);
 	}
@@ -209,8 +191,7 @@ class db_connection
 			$this->result = NULL;
 			return true;
 		}
-		$this->set_error('Could not free database result; no result specified', E_USER_NOTICE);
-		return false;
+		return $this->set_error('Could not free database result; no result specified');
 	}
 	
 	function set_prefix($prefix)
@@ -226,12 +207,9 @@ class db_connection
 	function num_rows()
 	{
 		if (!$this->connection)
-		{
-			$this->set_error('Could not return number of rows; no database connection exists');
-			return false;
-		}
-		$numrows = mysql_num_rows($this->result);
-		return $numrows;
+			return $this->set_error('Could not return number of rows; no database connection exists');
+
+		return mysql_num_rows($this->result);
 	}
 	
 	function get_error()
@@ -249,23 +227,21 @@ class db_connection
 		return (float)mysql_get_server_info($this->connection);
 	}
 	
-	//protected
-	
-	function set_error($errorname, $errortype = E_USER_ERROR)
+	protected function set_error($errorname, $throw = true)
 	{
 		$this->error = $errorname;
-		if ($mysqlerror = mysql_error()) $errorname = "MySQL Error: " . $mysqlerror;
-		trigger_error($errorname, $errortype);
+		if ($mysqlerror = mysql_error()) $errorname .= "; MySQL Error: " . $mysqlerror;
+		if ($throw)	trigger_error($errorname, E_USER_ERROR);
+		return false;
 	}
 	
-	//private
-	
-	var $connection;
-	var $query;
-	var $result;
-	var $num_queries;
-	var $prefix;
-	var $error;
+	private 
+		$connection,
+		$query,
+		$result,
+		$num_queries,
+		$prefix,
+		$error;
 }
 
 ?>
