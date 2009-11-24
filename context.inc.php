@@ -34,9 +34,8 @@ class context
 			'COOKIE' => &$_COOKIE,
 			'SERVER' => &$_SERVER
 			);
-		if (!count($_POST) && !empty($_SERVER['REQUEST_METHOD'])
-			&& $_SERVER['REQUEST_METHOD'] == 'POST')
-			$this->fatal_error();
+		if (!empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'POST')
+			$this->check_posterror();
 		$this->magicquotes = get_magic_quotes_gpc();
 	}
 	
@@ -101,6 +100,15 @@ class context
 		return $str->filter();
 	}
 	
+	private function check_posterror()
+	// check empty post possibly caused by post_max_size exceeded
+	{
+		if (!count($_POST) && !empty($_SERVER['CONTENT_TYPE'])
+			&& preg_match('#^(?:multipart/form-data|application/x-www-form-urlencoded)\b#i', 
+				$_SERVER['CONTENT_TYPE']))
+			trigger_error('Unexpected empty POST; post_max_size exceeded?', E_USER_ERROR);
+	}
+
 	function redirect($destination, $temporary = false)
 	// returns an http redirect
 	{

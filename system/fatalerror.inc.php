@@ -29,7 +29,6 @@ if (!headers_sent())
 }
 
 $postmethod = !empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD']=='POST';
-
 $postempty = ($postmethod && !count($_POST));
 
 if (class_exists('debug') && DEBUG)
@@ -101,8 +100,8 @@ li {margin-bottom: 6px;}
 		<?php if ($postmethod && !$postempty) { ?>
 		<li>If you tried to submit a form or take an action, it may have been successful despite this error.
 		Do not try re-submitting if it would be a problem to take the action twice (such as sending a message or making a purchase).</li>
-		<?php } elseif ($postmethod && $postempty) { ?>
-		<li>If you tried to submit a form or send a file, the total size of what you sent may have been too large for this site.</li>		
+		<?php } elseif ($postempty) { ?>
+		<li>If you tried to submit a form or send a file, the total size of what you sent may have been too large.</li>		
 		<?php } ?>
 	</ul>
 	<?php echo $debugnotices; ?>
