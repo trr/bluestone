@@ -74,11 +74,12 @@ class user
 				$this->logged_in = $this->userdetails['user_ID'] > 0;
 				
 				$timenow = TIMENOW;
-				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'location');
+				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
+				$ipsl = addslashes($ip);
 				$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
 				$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
 				$this->db->query("
-					UPDATE {$this->prefix}session SET session_IP='$ip',
+					UPDATE {$this->prefix}session SET session_IP='$ipsl',
 					session_lastvisited=$timenow, session_uahash=$uahash
 					WHERE session_hash='$sessionhash'");
 			}
@@ -148,17 +149,15 @@ class user
 	// checks if the ip address and user agent currently in use is sufficiently similar to
 	// the recorded ones given, to help make session hijacking harder
 	{
-		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'location');
+		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
 		$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
-		list($oldip1, $oldip2) = explode('.', $oldip);
-		list($ip1, $ip2) = explode('.', $ip);
-		
-		if (USER_STRENGTHENSESSIONS
-			&& ($oldip1!=$ip1 || $oldip2!=$ip2 || $oldua!=$uahash))
-			return false;
-		
-		return ($oldua==$uahash || ($oldip1==$ip1 && $oldip2==$ip2));
+		$ipstart1 = preg_replace('/\d++[.:]\d++$|\d++$/', '', $oldip);
+		$ipstart2 = preg_replace('/\d++[.:]\d++$|\d++$/', '', $ip);
+
+		return defined('USER_STRENGTHENSESSIONS') && USER_STRENGTHENSESSIONS
+			? ($ipstart1 == $ipstart2 && $oldua == $uahash)
+			: ($ipstart1 == $ipstart2 || $oldua == $uahash);
 	}
 	
 	function handlesuspect($userid, $newloginid = null)
@@ -198,7 +197,8 @@ class user
 		$this->debug->notice('user', 'Creating new session');
 		$this->sessionhash = user::randhash('sessionhash');
 			
-		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'location');
+		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
+		$ipsl = addslashes($ip);
 		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
 		$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
 		$timenow = TIMENOW;
@@ -206,7 +206,7 @@ class user
 		$this->db->query("
 			REPLACE INTO {$this->prefix}session
 			SET session_hash='{$this->sessionhash}', session_userID=$userid,
-			session_loginseqID=$seqid, session_IP='$ip', session_uahash=$uahash,
+			session_loginseqID=$seqid, session_IP='$ipsl', session_uahash=$uahash,
 			session_lastvisited=$timenow
 			");
 		$this->context->setcookie('session', $this->sessionhash, 0, '/', '', false, true);
@@ -246,7 +246,8 @@ class user
 		if (empty($userdetails['user_ID'])) return;
 		$hashstillvalid = $persistent ? 1 : 0;
 		
-		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'location');
+		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
+		$ipsl = addslashes($ip);
 		$hostsl = !empty($_SERVER['REMOTE_HOST']) ? addslashes($_SERVER['REMOTE_HOST'])
 			: addslashes(gethostbyaddr($ip));
 		$useragentsl = !empty($_SERVER['HTTP_USER_AGENT']) ?
@@ -265,7 +266,7 @@ class user
 			SET
 				userlogin_userID=$userid, userlogin_sequenceID=$seqid,
 				$userhasheq userlogin_hashstillvalid=$hashstillvalid,
-				userlogin_IP='$ip', userlogin_host='$hostsl',
+				userlogin_IP='$ipsl', userlogin_host='$hostsl',
 				userlogin_useragent='$useragentsl', userlogin_time=$timenow
 			");
 			
