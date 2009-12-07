@@ -29,9 +29,19 @@
 
 class debug
 {
-  // public
-	
-	function debug($debugmode)
+	private
+		$notices = array(),
+		$starttime_sec,
+		$starttime_usec,
+		$tasks = array(),
+		$nexttaskid = 0,
+		$noticeid = 0,
+		$noticetime,
+		$error_callback,
+		$debugmode,
+		$halton = null;
+
+	function __construct($debugmode)
 	// constructor
 	// to use this as a singleton, use getinstance() instead
 	{
@@ -39,7 +49,7 @@ class debug
 		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
   }
 
-	function notice($module, $notice, $data = null)
+	public function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
 	// or 'global' if in global scope
 	// notice is name of notice
@@ -74,7 +84,7 @@ class debug
 		}
 	}
 	
-	function starttask($module, $taskname, $data = NULL)
+	public function starttask($module, $taskname, $data = NULL)
 	// returns a unique task id
 	{
 		$this->notice($module, $taskname, $data);
@@ -89,7 +99,7 @@ class debug
     return $this->nexttaskid++;
 	}
 	
-	function endtask($taskid)
+	public function endtask($taskid)
 	{
 	  if (!isset($this->tasks[$taskid])) return false;
 		
@@ -108,31 +118,31 @@ class debug
 		unset($this->tasks[$taskid]);
 	}
 	
-	function useerrorhandler()
+	public function useerrorhandler()
 	{
 	  // if we haven't explicitly specified which errors to halt on,
 		// infer this from the
 		// current error_reporting value 
-	  if ($this->halton == NULL) $this->halton = error_reporting();
+	  if ($this->halton === NULL) $this->halton = error_reporting();
 		
 		// all errors should be handled by this module's error handler
 		error_reporting(E_ALL);
 		set_error_handler(array(&$this, 'debug_errorhandler'));
 	}
 	
-	function &getinstance($debugmode = true)
+	public static function &getinstance($debugmode = true)
   {
     static $instance;
   	if (!isset($instance)) $instance = new debug($debugmode); 
   	return $instance;
   }
 	
-	function sethalton($code)
+	public function sethalton($code)
 	{
 	  $this->halton = $code;
 	}
 	
-	function setdebugmode($mode)
+	public function setdebugmode($mode)
 	// mode is true or false.  sets status of debug mode, which gives additional
 	// diagnostic information about errors and notices.  should be set to off
 	// in production environments unless an administrator is logged in
@@ -141,7 +151,7 @@ class debug
 		$this->debugmode = $mode;
 	}
 	
-	function seterrorcallback($callback)
+	public function seterrorcallback($callback)
 	// sets a file to be executed when a fatal error occurs.  the file should
 	// output an error message to the screen.  in debug mode, this file is not
 	// used
@@ -149,7 +159,7 @@ class debug
 		$this->error_callback = $callback;
 	}
 	
-	function haltif($errno, $dooutput = true)
+	private function haltif($errno, $dooutput = true)
 	{
 		if ($errno & $this->halton)
 		{
@@ -199,7 +209,7 @@ class debug
 		if ($this->debugmode) echo "Debug Mode Notice: Non-fatal errors have occurred.  Please see error log.";
 	}
 	
-	function getnoticeshtml()
+	public function getnoticeshtml()
 	{
 		if (!count($this->notices)) return '';
 		$output = '<table border="1" cellspacing="0" cellpadding="4" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
@@ -216,7 +226,7 @@ class debug
 	  return $output;
 	}
 	
-	function getnoticestext()
+	public function getnoticestext()
 	{
 	  if (empty($this->notices)) return '';
 	  $output =  'Time (ms)   : Task (ms)   : Module           : Notice Type                      : Data' . "\r\n";
@@ -231,7 +241,7 @@ class debug
 	  return $output;
 	}
 	
-	function debug_errorhandler($errno, $errstr, $errfile, $errline)
+	public function debug_errorhandler($errno, $errstr, $errfile, $errline)
 	// designed as a PHP custom error handler - it logs it into the debug notices as
 	// a notice, unless it's a fatal error.
 	{
@@ -258,18 +268,6 @@ class debug
 		$this->haltif($errno);
 	}
   
-	// protected
-	// private
-	
-  var $notices = array();
-	var $starttime_sec;
-	var $starttime_usec;
-	var $tasks = array();
-	var $nexttaskid = 0;
-	var $noticeid = 0;
-	var $error_include = NULL;
-	var $debugmode;
-	var $halton = NULL;
 }
 
 	
