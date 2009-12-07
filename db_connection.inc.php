@@ -25,9 +25,14 @@
 
 class db_connection
 {
-	//public
-	
-	function db_connection($dbsettings)
+	private 
+		$connection,
+		$result,
+		$num_queries,
+		$prefix,
+		$error;
+
+	function __construct($dbsettings)
 	// tries to make a connection to the server.
 	// if an error occurs, is_connected() will return false and get_error() will return an error message
 	
@@ -81,7 +86,7 @@ class db_connection
 		}
 	}
 	
-	function close()
+	public function close()
 	// closes the database connection.
 	// returns false if there was no connection, true otherwise
 	{
@@ -95,20 +100,20 @@ class db_connection
 		return true;
 	}
 	
-	function is_connected()
+	public function is_connected()
 	// returns true if there is a connection, otherwise false
 	{
 		return $this->connection ? true : false;
 	}
 	
-	function escape($string)
+	public function escape($string)
 	// escaping in this way, instead of addslashes(), is important if using 
 	// multi-byte charsets (other than utf-8 which is safe)
 	{ 
 		return mysql_real_escape_string($string, $this->connection);
 	}
 	
-	function query($query)
+	public function query($query)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	{
 		if (!$this->connection)
@@ -128,7 +133,7 @@ class db_connection
 		return $this->set_error('Database query failed; no result was returned');
 	}
 	
-	function query_single($query)
+	public function query_single($query)
 	// tries a query.	fetches the first row and returns it as an array.	
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
@@ -158,7 +163,7 @@ class db_connection
 		return false;
 	}
 	
-	function fetch_array($result = '')
+	public function fetch_array($result = '')
 	{
 		if (!is_resource($result)) $result = $this->result;
 		if (!is_resource($result)) return false;
@@ -168,7 +173,7 @@ class db_connection
 		return false;
 	}
 	
-	function affected_rows()
+	public function affected_rows()
 	// return the number of rows affected by the last query like DELETE, UPDATE...
 	{
 		if (!$this->connection)
@@ -177,7 +182,7 @@ class db_connection
 		return mysql_affected_rows($this->connection);
 	}
 	
-	function free_result($result = null)
+	public function free_result($result = null)
 	{
 		if (is_resource($result))
 		{
@@ -194,17 +199,17 @@ class db_connection
 		return $this->set_error('Could not free database result; no result specified');
 	}
 	
-	function set_prefix($prefix)
+	public function set_prefix($prefix)
 	{
 		$this->prefix = $prefix;	
 	}
 	
-	function get_prefix()
+	public function get_prefix()
 	{
 		return $this->prefix;
 	}
 	
-	function num_rows()
+	public function num_rows()
 	{
 		if (!$this->connection)
 			return $this->set_error('Could not return number of rows; no database connection exists');
@@ -212,17 +217,17 @@ class db_connection
 		return mysql_num_rows($this->result);
 	}
 	
-	function get_error()
+	public function get_error()
 	{
 		return $this->error;
 	}
 	
-	function get_dbtype()
+	public function get_dbtype()
 	{
 		return 'mysql';
 	}
 	
-	function get_dbversion()
+	public function get_dbversion()
 	{
 		return (float)mysql_get_server_info($this->connection);
 	}
@@ -235,13 +240,6 @@ class db_connection
 		return false;
 	}
 	
-	private 
-		$connection,
-		$query,
-		$result,
-		$num_queries,
-		$prefix,
-		$error;
 }
 
 ?>
