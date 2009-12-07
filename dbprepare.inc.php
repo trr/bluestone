@@ -28,23 +28,26 @@
 
 class dbprepare
 {
-	//public
-	function dbprepare(&$db, $defaultengine='MyISAM', $defaultcollation='utf8_general_ci')
+	private
+		$db,
+		$prefix,
+		$errorcallback = null,
+		$suppressbigchanges = true,
+		$defaultengine,
+		$defaultcollation;
+
+	function __construct(&$db, $defaultengine='MyISAM', $defaultcollation='utf8_general_ci')
 	// if you are not using UTF-8, remember to change the default charset and collation
 	{
 		$this->db = &$db;
 		
 		$this->prefix = $this->db->get_prefix();
 		
-		$this->errorcallback = null;
-		
-		$this->suppressbigchanges = true;
-		
 		$this->defaultengine = $defaultengine;
 		$this->defaultcollation = $defaultcollation;
 	}
 	
-	function seterrorcallback($callback)
+	public function seterrorcallback($callback)
 	// allows you to use a callback function to receive any notices during the
 	// operation.  This includes warnings (things that seem wrong and can't safely
 	// be fixed), notices (irregularities thought harmless such as unexpected
@@ -61,19 +64,18 @@ class dbprepare
 		$this->errorcallback = $callback;
 	}
 	
-	// private
-	function seterror($msg, $type = 'notice')
+	private function seterror($msg, $type = 'notice')
 	{
-		if (isset($this->errorcallback))
+		if ($this->errorcallback)
 			call_user_func($this->errorcallback, $msg, $type);
 	}
 
-	function suppressbigchanges($val = true)
+	public function suppressbigchanges($val = true)
 	{
 		$this->suppressbigchanges = (boolean)$val;
 	}
 	
-	function preparemultiple($tabledefs)
+	public function preparemultiple($tabledefs)
 	// $tabledefs is an array of
 	// 		$table => array('fields' => $fields, 'indexes' => $indexes, 'isheap' => $heap), ...
 	// it allows you to prepare() multiple tables at once.
@@ -109,7 +111,7 @@ class dbprepare
 		
 	}
 	
-	function populatemultiple($tabledata)
+	public function populatemultiple($tabledata)
 	// $tabledata is an array of
 	// 		$table => array('values' => $values, 'preserve' => $preserve), ...
 	// it allows you to populate() multiple tables at once.
@@ -123,7 +125,7 @@ class dbprepare
 		}
 	}
 	
-	function populate($table, $records, $preserve = null)
+	public function populate($table, $records, $preserve = null)
 	// Populates a table with data.  $records is an array of rows to be inserted,
 	// where each row is an arrow of $key => $value
 	// values can be strings or numbers
@@ -176,7 +178,7 @@ class dbprepare
 			$this->seterror("Table {$this->prefix}{$table}: $changedrows rows added or updated", 'changed');	
 	}
 
-	function prepare($table, $fields, $indexes, $heap = false, $collation = null, $preserveindexes = false)
+	public function prepare($table, $fields, $indexes, $heap = false, $collation = null, $preserveindexes = false)
 	// Creates the table with given fields and indexes if it doesn't exist,
 	// makes sure it has the given fields and indexes if it does exist
 	// extra fields/indexes in the table but not in the parameters are left intact
@@ -657,8 +659,7 @@ class dbprepare
 		return trim(strtoupper($indextype)) == 'FULLTEXT';
 	}
 	
-	// protected
-	function getenumvalues($str)
+	private function getenumvalues($str)
 	// parses a string like "'value','value2','tom\'s 3rd value'" and returns
 	// a simple array of strings or FALSE if a parsing error occurred or if there
 	// are no values found.
@@ -680,7 +681,7 @@ class dbprepare
 		return $values;			
 	}
 	
-	function getenumstr($values)
+	private function getenumstr($values)
 	// changes a list of values back into a string like
 	//   "'value','value2','tom\'s 3rd value'"
 	{
@@ -692,8 +693,7 @@ class dbprepare
 		return implode(',', $outs);
 	}
 	
-	// protected
-	function getcolumndefinition($fieldname, $val)
+	private function getcolumndefinition($fieldname, $val)
 	// gets column definition in SQL from $field value
 	{
 		$type = $val[0];    
@@ -711,7 +711,7 @@ class dbprepare
 		return "`$fieldname` $type $charsetstring $notnull $defaultval $autoinc";		
 	}
 	
-	protected function hascollation($type)
+	private function hascollation($type)
 	{
 		list($typename) = explode('(', $type);
 		static $colltypes = array(
@@ -721,8 +721,7 @@ class dbprepare
 		return !empty($colltypes[$typename]);
 	}
 	
-	// protected
-	function getindexdefinition($indexname, $val)
+	private function getindexdefinition($indexname, $val)
 	{
 		$type = '';
 		if (strcasecmp($val[0], 'UNIQUE') == 0) $type = 'UNIQUE';
@@ -736,8 +735,7 @@ class dbprepare
 		return "$type KEY $name $fields";
 	}
 	
-	// public
-	function create($table, $fields, $indexes, $heap = false, $collation = null)
+	public function create($table, $fields, $indexes, $heap = false, $collation = null)
 	// this function, or indeed any functions in this class, will not take
 	// responsibility for checking that the table, column and index names are
 	// valid.  None of these should be used with untrusted human input.
@@ -774,8 +772,7 @@ class dbprepare
 		$this->seterror("Table {$this->prefix}{$table} created", 'changed');									
 	}
 	
-	// protected
-	function gettablestatus($table)
+	private function gettablestatus($table)
 	// returns an array with information about the table including 'Engine'.
 	// returns NULL instead of an array if the table is not found.
 	{
@@ -793,7 +790,7 @@ class dbprepare
 		return null;
 	}
 	
-	function getfields($table)
+	private function getfields($table)
 	// returns the fields of a table in the same format as $fields in prepare()
 	{
 		$this->db->query("
@@ -822,7 +819,7 @@ class dbprepare
 		return $fields;
 	}
 	
-	function getindexes($table)
+	private function getindexes($table)
 	// returns the indexes of a table in the same format as $indexes in prepare()
 	{
 		$table_s = 
@@ -852,7 +849,7 @@ class dbprepare
 		return $indexes;
 	}
 	
-	function prettyprint()
+	public function prettyprint()
 	// uses the existing tables to generate nicely formatted PHP with the
 	// table definition including fields, indexes and isheap
 	{
@@ -944,11 +941,6 @@ class dbprepare
 		return $charset;
 	}
 		
-	var $db;
-	var $prefix;
-	
-	var $suppressbigchanges;
-	var $defaultengine;
 }
 
 ?>
