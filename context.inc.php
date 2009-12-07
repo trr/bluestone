@@ -42,7 +42,7 @@ class context
 		$length,
 		$docompress;
 
-	function context()
+	function __construct()
 	{
 		$this->sourcearray = array(
 			'REQUEST' => &$_REQUEST,
