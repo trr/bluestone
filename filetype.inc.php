@@ -31,6 +31,14 @@ define('FILETYPE_BUF_CHUNK', 4096);
 
 class filetype
 {
+	private
+		$isfile,
+		$file,
+		$valid,
+		$length,
+		$data,
+		$types;
+
 	function __construct($data = null, $filename = null)
 	// if filename is left blank, $data is taken to contain the contents of the file.
 	// if filename is given then data is ignored
