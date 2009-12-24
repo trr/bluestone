@@ -33,7 +33,7 @@
 
 class diff
 {
-	static function strgetsamelen($a, $b, $aoff = 0, $boff = 0, $utf8 = false)
+	public static function strgetsamelen($a, $b, $aoff = 0, $boff = 0, $utf8 = false)
 	// string comparison - returns length in bytes from the start (or given offsets)
 	// to the first non-matching byte.  utf8 mode avoids breaking utf8 chars
 	{		
@@ -48,7 +48,7 @@ class diff
 		return $len;
 	}
 	
-	static function strgetrevsamelen($a, $b)
+	public static function strgetrevsamelen($a, $b)
 	// like strgetsamelen BUT IN REVERSE - works from the end of the string backwards.
 	// no offsets or utf8 mode implemented for this one
 	{		
@@ -62,7 +62,7 @@ class diff
 		return $i + strspn(strrev($xor), "\0");
 	}
 	
-	static function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false)
+	public static function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false)
 	// substring matching - returns the length in bytes of the initial segments
 	// of the strings (from offsets) which contain no significant matching substrings.
 	// utf8 mode avoids breaking utf8 chars
@@ -178,7 +178,7 @@ class diff
 		return array($amax+$asegpos-$aoff, $bmax+$bsegpos-$boff);
 	}
 	
-	static function dodiff($a, $b, $utf8 = false)
+	public static function dodiff($a, $b, $utf8 = false)
 	// returns a one way editlist in the form of array(array($aoff, $alen, $boff, $blen))
 	// for every edit between a and b.
 	// utf8 mode avoids splitting utf-8 characters on edit edges
@@ -203,13 +203,13 @@ class diff
 		return $edits;
 	}
 	
-	private static function getfilechunk($file, $offset, &$segpos)
+	public private static function getfilechunk($file, $offset, &$segpos)
 	{
 		fseek($file, $offset);		$segpos = $offset;
 		return fread($file, DIFF_SEGMENTLEN);
 	}
 	
-	static function dodiff_file($filenamea, $filenameb)
+	public static function dodiff_file($filenamea, $filenameb)
 	// care MUST be taken that the filenames provided are safe
 	{
 		$alen = filesize($filenamea);		$blen = filesize($filenameb);
@@ -262,7 +262,7 @@ class diff
 		return $edits;
 	}
 	
-	static function reverse($editlist)
+	public static function reverse($editlist)
 	// reverses an editlist: the 'source' swaps with the 'destination'
 	// re-orders the result so it is still in the order it appears in the
 	// new source (not that that would occur often)
@@ -274,7 +274,7 @@ class diff
 		return $templist;
 	}
 	
-	static function mergeleft($ab, $ac)
+	public static function mergeleft($ab, $ac)
 	// given two editlists A->B and A->C, returns an editlist A->X where X
 	// is a new document created by a 3-way merge.  The editlist returned contains
 	// additional information about how to build the string X from only information
@@ -319,7 +319,7 @@ class diff
 	private static function sourcesort($a, $b)
 	{ return $a[0]==$b[0] ? $a[1]-$b[1] : $a[0]-$b[0]; }
 	
-	static function assemblemerge($mergelist, $a, $b, $c /* , ... */)
+	public static function assemblemerge($mergelist, $a, $b, $c /* , ... */)
 	// returns new string formed by sources $a, $b, $c, ..., ... with merge 
 	// instructions $mergelist
 	{
