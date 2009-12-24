@@ -23,13 +23,15 @@
 
 // Works with files in the file system or in memory
 
-// Note that files over 2GB may not be reliably detected, not to mention it may not be possible in PHP to know if your file is over 2GB
+// Note that files over 2GB may not be reliably detected, not to mention
+// it may not be possible in PHP to know if your file is over 2GB. Make
+// sure your file is <2GB before testing.
 
 define('FILETYPE_BUF_CHUNK', 4096);
 
 class filetype
 {
-	function filetype($data = null, $filename = null)
+	function __construct($data = null, $filename = null)
 	// if filename is left blank, $data is taken to contain the contents of the file.
 	// if filename is given then data is ignored
 	// care MUST be taken to ensure the filename provided is safe
@@ -49,7 +51,7 @@ class filetype
 		}
 	}
 	
-	function getchunk($offset, $len)
+	private function getchunk($offset, $len)
 	{
 		if (!$this->isfile) return substr($this->data, $offset, $len);
 		if (!$this->file) return null;
@@ -58,7 +60,7 @@ class filetype
 		return fread($this->file, $len);		
 	}
 	
-	function findstring($needle, $start = 0, $end = null /* end of string */)
+	private function findstring($needle, $start = 0, $end = null /* end of string */)
 	// end can be before start, in which case the search is in reverse
 	// returns position of found substring, or FALSE if not found
 	{
@@ -90,7 +92,7 @@ class filetype
 		return false;	
 	}
 	
-	function gettypes()
+	public function gettypes()
 	// analyses the type of the file and returns a list of matching types
 	// we use x- rather than vnd. notation for types where it doesn't seem official
 	// note that the x- may be removed in future so comparisons should be done removing the x-
@@ -120,7 +122,7 @@ class filetype
 			"BM" => 'image/bmp',
 			"MZ" => 'application/exe', // also DLL, OCX, SCR etc
 			"ZM" => 'application/exe',
-			"NE" => 'application/exe',
+			"NE" => 'application/exe', // note false positives quite likely
 			"RIFF" => 'application/avi',
 			"FWS" => 'application/swf',
 			"XFIR" => 'application/x-shockwave',
@@ -168,8 +170,7 @@ class filetype
 		return array_keys($this->types);			
 	}
 	
-	// private
-	function gettypehtml($chunklower)
+	private function gettypehtml($chunklower)
 	// sees if this content looks like html
 	{
 		static $matches = array(
@@ -184,8 +185,7 @@ class filetype
 		return false;
 	}
 	
-	// private
-	function gettypezip($chunk)
+	private function gettypezip($chunk)
 	// more thorough check to see if the file could be identified as zip
 	// errs on the side of detecting; true result could mean "looks like zip but who knows if it works"
 	{
@@ -251,7 +251,7 @@ class filetype
 		return false;
 	}
 	
-	function gettype()
+	public function gettype()
 	// returns just a single matching type.  if more than one type matched, then
 	// it tries to go with the more specific or important one
 	// if no types matched, it returns application/octet-stream
@@ -266,7 +266,7 @@ class filetype
 		return 'application/octet-stream';
 	}
 	
-	function issafeimage()
+	public function issafeimage()
 	// returns true if the type was detected to be a PNG, GIF or JPG file and nothing else
 	// it should be relatively safe to serve it provided proper precautions.  gif and jpeg (and PNG
 	// on recent versions) shouldn't be content sniffed by IE
@@ -281,7 +281,7 @@ class filetype
 		return true;
 	}
 	
-	function isbrowsersafe()
+	public function isbrowsersafe()
 	// returns true if it is relatively safe to serve a file of this file type uploaded by an
 	// untrusted user.  not as safe as issafeimage, as some browsers may browser sniff
 	// the type though
@@ -306,7 +306,6 @@ class filetype
 // TODO profiling
 
 //$filetype = new filetype(null, "d:/temp/me4.jpg");
-
 //var_export($filetype->gettypes());
 
 ?>
