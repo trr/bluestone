@@ -107,6 +107,7 @@ class utf8_string
 		return strtolower($this->string);
 	}
 	
+	/*
 	private function chr($n)
 	// returns a character from the unicode integer value $n.  Unlike PHP's built
 	// in chr(), this can generate utf-8 characters of up to 4 bytes
@@ -149,6 +150,7 @@ class utf8_string
 		}
 		return $val;
 	}
+	*/
 	
 	private function convertfromascii($replace = '')
 	// this assumes ascii and removes any non-ascii bytes
