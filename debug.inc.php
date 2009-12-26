@@ -36,27 +36,19 @@ class debug
 		$tasks = array(),
 		$nexttaskid = 0,
 		$noticeid = 0,
-		$noticetime,
-		$error_callback,
+		$noticetime = array(null, null),
 		$debugmode,
-		$halton = null,
-		$errorcount = 0;
+		$useerrorhandler = false;
 
-	function __construct($debugmode)
+	function __construct($debugmode = false, $useerrorhandler = true)
 	// constructor
 	// to use this as a singleton, use getinstance() instead
 	{
     $this->debugmode = $debugmode;
 		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
+		
+		$this->useerrorhandler($useerrorhandler);
   }
-
-	function __destruct()
-	{
-		if ($this->debugmode && $this->errorcount)
-			$this->halt();
-	}
-
-	public function geterrorcount() { return $this->errorcount; }
 
 	public function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
@@ -98,12 +90,9 @@ class debug
 	{
 		$this->notice($module, $taskname, $data);
 
-	  if ($this->debugmode)
-			list($sec, $usec) = $this->noticetime;
-		else
-			$sec = $usec = null;
-		
-	  $this->tasks[$this->nexttaskid] = array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
+	  list($sec, $usec) = $this->noticetime;
+		$this->tasks[$this->nexttaskid] =
+			array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
 
     return $this->nexttaskid++;
 	}
@@ -111,32 +100,38 @@ class debug
 	public function endtask($taskid)
 	{
 	  if (!isset($this->tasks[$taskid])) return false;
-		
 		$task = &$this->tasks[$taskid];
 		
 		if ($this->debugmode)
 		{
 		  list($sec, $usec) = explode(' ', microtime());
-			$taskelapsed = (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
+			$this->notices[$task['noticeid']]['taskelapsed'] = 
+			 (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
 		}
-		else
-			$taskelapsed = null;
-		
-		$this->notices[$task['noticeid']]['taskelapsed'] = $taskelapsed;
 		
 		unset($this->tasks[$taskid]);
 	}
 	
-	public function useerrorhandler()
+	public function useerrorhandler($useerrorhandler = true)
+	// allows you to enable/disable whether this module's error handler should
+	// be used.  note that the error handler is now used by default, hence
+	// calling this should be unnecessary if you want it turned _on_ 
 	{
-	  // if we haven't explicitly specified which errors to halt on,
-		// infer this from the
-		// current error_reporting value 
-	  if ($this->halton === NULL) $this->halton = error_reporting();
-		
-		// all errors should be handled by this module's error handler
-		error_reporting(E_ALL);
-		set_error_handler(array(&$this, 'debug_errorhandler'));
+		if ($useerrorhandler == $this->useerrorhandler) return;
+		else $this->useerrorhandler = $useerrorhandler;
+
+		if ($useerrorhandler)
+		{
+			// in debug mode we handle all errors
+			if ($this->debugmode) error_reporting(-1);
+			set_error_handler(array(&$this, 'debug_errorhandler'));
+			set_exception_handler(array(&$this, 'debug_errorhandler'));
+		}
+		else
+		{
+			restore_error_handler();
+			restore_exception_handler();
+		}
 	}
 	
 	public static function &getinstance($debugmode = true)
@@ -146,34 +141,14 @@ class debug
   	return $instance;
   }
 	
-	public function sethalton($code)
-	{
-	  $this->halton = $code;
-	}
-	
-	public function setdebugmode($mode)
-	// mode is true or false.  sets status of debug mode, which gives additional
-	// diagnostic information about errors and notices.  should be set to off
-	// in production environments unless an administrator is logged in
-	{
-	  if ($mode and !$this->debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
-		$this->debugmode = $mode;
-	}
-	
 	public function seterrorcallback($callback)
-	// sets a file to be executed when a fatal error occurs.  the file should
-	// output an error message to the screen.  in debug mode, this file is not
+	// sets a function to be executed when a fatal error occurs.  it could
+	// output an error message to the screen.  in debug mode, this is not
 	// used
 	{
 		$this->error_callback = $callback;
 	}
 	
-	private function haltif($errno)
-	{
-		if ($errno & $this->halton || $force)
-			$this->halt();
-	}
-
 	private function halt()
 	{
 		if (!headers_sent() && empty($this->error_callback)) header('HTTP/1.1 500 Internal Server Error');
@@ -184,10 +159,8 @@ class debug
 			if (!empty($this->error_callback))
 				call_user_func($this->error_callback, 'Application Error');
 			else
-			{
-				echo '<h1>Internal Server Error</h1><p>The server encountered an internal error or misconfiguration and was unable to complete your request.</p><p>We apologise for the inconvenience this problem may have caused.  This problem has been brought to the attention of the webmaster and will be fixed as soon as possible.';
-			}				
-			exit;
+				require(BLUESTONE_DIR . 'system/fatalerror.inc.php');
+			exit('Problem finding fatal error page');
 		}
 
 		echo '<h1>Error Notice</h1><p>Your site is currently in DEBUG mode.  DEBUG mode should
@@ -206,9 +179,9 @@ class debug
 				break;
 			}
 			$output = '';
-				foreach ($row as $key => $var)
+			foreach ($row as $key => $var)
 			{
-					if ($output) $output .= ', ';
+				if ($output) $output .= ', ';
 				$output .= $key . ': ' . print_r($var, true);
 			}
 			if (strlen($output) > 8192)
@@ -253,36 +226,38 @@ class debug
 	  return $output;
 	}
 	
-	public function debug_errorhandler($errno, $errstr, $errfile, $errline)
-	// designed as a PHP custom error handler - it logs it into the debug notices as
+	public function debug_errorhandler($err, $errstr='', $errfile='', $errline='')
+	// designed as a custom error handler - it logs it into the debug notices as
 	// a notice, unless it's a fatal error.
 	{
-		// we need to double check if this error needs reporting
-		if (!($errno & error_reporting())) return;
-		
-		$errortypes = array(
-			E_ERROR           => 'Error',
-			E_WARNING         => 'Warning',
-			E_PARSE           => 'Parse Error',
-			E_NOTICE          => 'Notice',
-			E_CORE_ERROR      => 'Core Error',
-			E_CORE_WARNING    => 'Core Warning',
-			E_COMPILE_ERROR   => 'Compile Error',
-			E_COMPILE_WARNING => 'Compile Warning',
-			E_USER_ERROR      => 'User Error',
-			E_USER_WARNING    => 'User Warning',
-			E_USER_NOTICE     => 'User Notice'
-			);					 
-											 
-		$errortype = (isset($errortypes[$errno])) ? $errortypes[$errno] : 'Unknown Error';		
-		
-		$this->notice('debug', 'PHP error handling', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
-		$this->errorcount++;
-		$this->haltif($errno);
-	}
-  
-}
+		if (is_object($err))
+		{
+			$errortype = get_class($err);
+			$errcode = $err->getCode();
+			if ($errcode) $errortype .= " (code $errcode)";
+			$errstr = $err->getMessage();
+			$errfile = $err->getFile();
+			$errline = $err->getLine();
+		}
+		else
+		{
+			// we need to double check if this error needs reporting
+			if (!($err & error_reporting())) return;
 
-	
+			$errortypes = array(
+				E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parse Error',
+				E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning',
+				E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning',
+				E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
+				E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
+				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
+				);					 
+			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
+		}
+		$this->notice('debug', 'Error', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
+
+		$this->halt();
+	}
+}
 
 ?>
