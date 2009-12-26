@@ -39,7 +39,8 @@ class debug
 		$noticetime,
 		$error_callback,
 		$debugmode,
-		$halton = null;
+		$halton = null,
+		$errorcount = 0;
 
 	function __construct($debugmode)
 	// constructor
@@ -48,6 +49,12 @@ class debug
     $this->debugmode = $debugmode;
 		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
   }
+
+	function __destruct()
+	{
+		if ($this->debugmode && $this->errorcount)
+			$this->halt();
+	}
 
 	public function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
@@ -159,54 +166,57 @@ class debug
 		$this->error_callback = $callback;
 	}
 	
-	private function haltif($errno, $dooutput = true)
+	private function haltif($errno)
 	{
-		if ($errno & $this->halton)
+		if ($errno & $this->halton || $force)
+			$this->halt();
+	}
+
+	private function halt()
+	{
+		if (!headers_sent() && empty($this->error_callback)) header('HTTP/1.1 500 Internal Server Error');
+		while (ob_get_length() !== false) ob_end_clean();
+			
+		if (!$this->debugmode)
 		{
-			while (ob_get_length() !== false) ob_end_clean();
-				
-			if (!$this->debugmode)
+			if (!empty($this->error_callback))
+				call_user_func($this->error_callback, 'Application Error');
+			else
 			{
-				if (!empty($this->error_callback))
-					call_user_func($this->error_callback, 'Application Error');
-				else
-				{
-					if (!headers_sent()) header('HTTP/1.1 500 Internal Server Error');
-					echo '<h1>Internal Server Error</h1><p>The server encountered an internal error or misconfiguration and was unable to complete your request.</p><p>We apologise for the inconvenience this problem may have caused.  This problem has been brought to the attention of the webmaster and will be fixed as soon as possible.';
-				}				
-				exit;
-			}
-			echo '<h1>Error Notice</h1><p>Your site is currently in DEBUG mode.  DEBUG mode should
-				never be enabled on a site that is accessible to the public, as it might reveal secret
-				information that an untrusted person could use to gain access.</p>';
-			
-			$backtrace = debug_backtrace();
-		  	
-			$totallen = 0; // prevent backtrace being too big
-			foreach ($backtrace as $row)
-			{
-				if (isset($row['class']) && $row['class'] == 'debug') continue;
-				if ($totallen >= 16384)
-				{
-					$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
-					break;
-				}
-				$output = '';
-		  		foreach ($row as $key => $var)
-				{
-		  			if ($output) $output .= ', ';
-					$output .= $key . ': ' . print_r($var, true);
-				}
-				if (strlen($output) > 8192)
-					$output = substr($output, 0, 8192) . '... (truncated)';
-				$this->notice('debug', 'backtrace', $output);
-				$totallen += strlen($output);
-			}
-			
-			echo $this->getnoticeshtml();
+				echo '<h1>Internal Server Error</h1><p>The server encountered an internal error or misconfiguration and was unable to complete your request.</p><p>We apologise for the inconvenience this problem may have caused.  This problem has been brought to the attention of the webmaster and will be fixed as soon as possible.';
+			}				
 			exit;
 		}
-		if ($this->debugmode) echo "Debug Mode Notice: Non-fatal errors have occurred.  Please see error log.";
+
+		echo '<h1>Error Notice</h1><p>Your site is currently in DEBUG mode.  DEBUG mode should
+			never be enabled on a site that is accessible to the public, as it might reveal technical
+			information that an untrusted person could use to gain access.</p>';
+		
+		$backtrace = debug_backtrace();
+			
+		$totallen = 0; // prevent backtrace being too big
+		foreach ($backtrace as $row)
+		{
+			if (isset($row['class']) && $row['class'] == 'debug') continue;
+			if ($totallen >= 16384)
+			{
+				$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
+				break;
+			}
+			$output = '';
+				foreach ($row as $key => $var)
+			{
+					if ($output) $output .= ', ';
+				$output .= $key . ': ' . print_r($var, true);
+			}
+			if (strlen($output) > 8192)
+				$output = substr($output, 0, 8192) . '... (truncated)';
+			$this->notice('debug', 'backtrace', $output);
+			$totallen += strlen($output);
+		}
+		
+		echo $this->getnoticeshtml();
+		exit;
 	}
 	
 	public function getnoticeshtml()
@@ -265,6 +275,7 @@ class debug
 		$errortype = (isset($errortypes[$errno])) ? $errortypes[$errno] : 'Unknown Error';		
 		
 		$this->notice('debug', 'PHP error handling', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
+		$this->errorcount++;
 		$this->haltif($errno);
 	}
   
