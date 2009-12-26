@@ -203,7 +203,7 @@ class diff
 		return $edits;
 	}
 	
-	public private static function getfilechunk($file, $offset, &$segpos)
+	private static function getfilechunk($file, $offset, &$segpos)
 	{
 		fseek($file, $offset);		$segpos = $offset;
 		return fread($file, DIFF_SEGMENTLEN);
