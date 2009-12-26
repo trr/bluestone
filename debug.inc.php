@@ -56,8 +56,6 @@ class debug
 			$this->halt();
 	}
 
-	public function geterrorcount() { return $this->errorcount; }
-
 	public function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
 	// or 'global' if in global scope
