@@ -34,16 +34,16 @@ define('USER_STRENGTHENSESSIONS', true);
 class user
 {
 	private
-		context,
-		debug,
-		db,
-		prefix,
-		session_exists = false,
-		sessionhash = null,
-		logged_in = false,
-		userdetails = null,
-		status = null,
-		safe_token;
+		$context,
+		$debug,
+		$db,
+		$prefix,
+		$session_exists = false,
+		$sessionhash = null,
+		$logged_in = false,
+		$userdetails = null,
+		$status = null,
+		$safe_token;
 
 	function __construct()
 	{
