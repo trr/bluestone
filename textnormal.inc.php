@@ -31,7 +31,7 @@ class textnormal
 {
 	private
 		$utf8_string,
-		$webchars;
+		$webchars = false;
 
 	function __construct($string = NULL)
 	// can accept a plain string or utf8_string object
@@ -40,8 +40,6 @@ class textnormal
 			$this->utf8_string = new utf8_string($string);
 			
 		else $this->utf8_string = $string;
-		
-		$this->webchars = false;
 	}
 	
 	public function setwebchars($webchars = false)
