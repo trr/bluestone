@@ -113,7 +113,7 @@ class context
 				$val[$vkey] = $this->utf8_filter($vval);
 			return $val;
 		}
-		$str = &new utf8_string($val);
+		$str = new utf8_string($val);
 		return $str->filter();
 	}
 	
@@ -329,7 +329,7 @@ class context
 			{
 				require_once(BLUESTONE_DIR . 'httpresume.inc.php');
 				$httpresume = 
-					&new httpresume($this->length, $this->etag, $this->lastmodified, $this->vary, $this->contenttype);
+					new httpresume($this->length, $this->etag, $this->lastmodified, $this->vary, $this->contenttype);
 				$ranges = $httpresume->getranges();	
 				if ($ranges) $httpresume->sendheaders();		
 			} 
