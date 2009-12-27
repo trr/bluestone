@@ -62,8 +62,7 @@ class debug
 			$elapsed = (float)($sec - $this->starttime_sec) + (float)($usec - $this->starttime_usec);
 			$this->noticetime = array($sec, $usec);
 		}
-		else
-			$elapsed = null;
+		else $elapsed = null;
 
 		$this->notices[++$this->noticeid] = array(
 			'module' => $module,
@@ -74,10 +73,10 @@ class debug
 		);
 
 		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
-		if ($this->noticeid > 50)
+		if ($this->noticeid > 80)
 		{
 			if (strlen($this->notices[$this->noticeid - 50]['data']) > 80)
-				$this->notices[$this->noticeid - 50]['data'] = substr($this->notices[$this->noticeid - 50]['data'], 0, 65) . '... (truncated)';
+				$this->notices[$this->noticeid - 80]['data'] = substr($this->notices[$this->noticeid - 80]['data'], 0, 65) . '... (truncated)';
 			if ($this->noticeid > 251)
 				unset($this->notices[$this->noticeid - 250]);
 			elseif ($this->noticeid == 251)
@@ -149,7 +148,7 @@ class debug
 		$this->error_callback = $callback;
 	}
 	
-	private function halt()
+	private function halt($message = '')
 	{
 		if (!headers_sent() && empty($this->error_callback)) header('HTTP/1.1 500 Internal Server Error');
 		while (ob_get_length() !== false) ob_end_clean();
@@ -163,9 +162,9 @@ class debug
 			exit('Problem finding fatal error page');
 		}
 
-		echo '<h1>Error Notice</h1><p>Your site is currently in DEBUG mode.  DEBUG mode should
-			never be enabled on a site that is accessible to the public, as it might reveal technical
-			information that an untrusted person could use to gain access.</p>';
+		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
+		if ($message != '') echo '<p>' . htmlspecialchars($message) . '</p>';
+		echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
 		
 		$backtrace = debug_backtrace();
 			
@@ -184,9 +183,9 @@ class debug
 				if ($output) $output .= ', ';
 				$output .= $key . ': ' . print_r($var, true);
 			}
-			if (strlen($output) > 8192)
-				$output = substr($output, 0, 8192) . '... (truncated)';
-			$this->notice('debug', 'backtrace', $output);
+			if (strlen($output) > 4096)
+				$output = substr($output, 0, 4096) . '... (truncated)';
+			$this->notice('debug', 'Backtrace', $output);
 			$totallen += strlen($output);
 		}
 		
@@ -201,9 +200,9 @@ class debug
 		
 		foreach ($this->notices as $notice)
 		{
-			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 5) : '&nbsp;';
+			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 2) : '&nbsp;';
 			$data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
-			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 5) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
+			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 2) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
 		}		
 		
 		$output .= '</table>';
@@ -214,13 +213,13 @@ class debug
 	public function getnoticestext()
 	{
 	  if (empty($this->notices)) return '';
-	  $output =  'Time (ms)   : Task (ms)   : Module           : Notice Type                      : Data' . "\r\n";
-    $output .= '............:.............:..................:..................................:.....' . "\r\n";
+	  $output =  'Time (ms) : Task (ms) : Module           : Notice Type                      : Data' . "\r\n";
+    $output .= '..........:...........:..................:..................................:.....' . "\r\n";
     
     foreach ($this->notices as $notice)
 		{
-			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 5), 11, ' ', STR_PAD_LEFT) : '           ';
-			$output .= str_pad(number_format($notice['elapsed'] * 1000, 5), 11, ' ', STR_PAD_LEFT) . ' : ' . $taskelapsed . ' : ' . str_pad(substr($notice['module'], 0, 16), 16) . ' : ' . str_pad($notice['notice'], 32) . ' : ' . trim(strtr($notice['data'], "\r\n\t", '   ')) . "\r\n";
+			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) : '         ';
+			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) . ' : ' . $taskelapsed . ' : ' . str_pad(substr($notice['module'], 0, 16), 16) . ' : ' . str_pad($notice['notice'], 32) . ' : ' . trim(strtr($notice['data'], "\r\n\t", '   ')) . "\r\n";
 		}		
 		
 	  return $output;
@@ -254,9 +253,8 @@ class debug
 				);					 
 			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
 		}
-		$this->notice('debug', 'Error', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
-
-		$this->halt();
+		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr");
+		$this->halt("$errortype in $errfile line $errline: $errstr");
 	}
 }
 
