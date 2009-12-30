@@ -159,7 +159,7 @@ class debug
 				call_user_func($this->error_callback, 'Application Error');
 			else
 				require(BLUESTONE_DIR . 'system/fatalerror.inc.php');
-			exit('Problem finding fatal error page');
+			exit;
 		}
 
 		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
