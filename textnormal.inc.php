@@ -29,18 +29,20 @@ require_once(BLUESTONE_DIR . 'utf8_string.inc.php');
 
 class textnormal
 {
-	function textnormal($string = NULL)
+	private
+		$utf8_string,
+		$webchars = false;
+
+	function __construct($string = NULL)
 	// can accept a plain string or utf8_string object
 	{
 		if (is_string($string))
 			$this->utf8_string = new utf8_string($string);
 			
 		else $this->utf8_string = $string;
-		
-		$this->webchars = false;
 	}
 	
-	function setwebchars($webchars = false)
+	public function setwebchars($webchars = false)
 	// if set to true, commas, periods, & @ will be treated as word separating chars
 	// so "word.word" and "word,word" will each be considered two words, not one
 	// and symbols $ + < = > | ~ ^ ` will be treated as separate to their adjoining words
@@ -50,7 +52,7 @@ class textnormal
 		$this->webchars = $webchars ? true : false;
 	}	
 
-	function normal($letters = true, $space = true, $dashes = true, $punc = true)
+	public function normal($letters = true, $space = true, $dashes = true, $punc = true)
 	// normalises the string - different types of normalisation are specified by
 	// the arguments.  Note that doing all 5 at once is significantly faster than all
 	// one after the other
@@ -101,7 +103,7 @@ class textnormal
 		return $str;
 	}
 	
-	function words($normaliseletters = false)
+	public function words($normaliseletters = false)
 	// split the string into words, stripping out punctuation (but leaving symbols)
 	// does not case fold or normalise characters - should probably do that before
 	// splitting into words if you need it.  
@@ -115,7 +117,7 @@ class textnormal
 		return explode(' ', $str);
 	}
 	
-	function naturalsortindex($normaliseletters = true)
+	public function naturalsortindex($normaliseletters = true)
 	{
 		$webchars = $this->webchars;
 		$this->webchars = false;
@@ -130,14 +132,15 @@ class textnormal
 		return $str;
 	}
 	
-	function numbertrans_callback($matches)
+	public function numbertrans_callback($matches)
+		//todo does this have to be public?
 	{
 		$len = strlen($matches[0]);
 		if ($len <= 9) return (string)($len - 1) . $matches[0];
 		return '9' . (string)($len - 10) . $matches[0];
 	}
 	
-	static $normalletterstable = array( 
+	private static $normalletterstable = array( 
 		// normalisation set up to U+024F, pretty rough by TRUT
 		"\xc3\xdf"=>'ss',"\xc3\xa0"=>'a',"\xc3\xa1"=>'a',"\xc3\xa2"=>'a',"\xc3\xa3"=>'a',
 		"\xc3\xa4"=>'a',"\xc3\xa5"=>'a',"\xc3\xa6"=>'e',"\xc3\xa7"=>'c',"\xc3\xa8"=>'e',
@@ -208,10 +211,10 @@ class textnormal
 		"\xcd\xae"=>'',"\xcd\xaf"=>'',
 		);
 		
-	static $spacecharsascii = array(
+	private static $spacecharsascii = array(
 		"\x09"=>' ',"\x0a"=>' ',"\x0b"=>' ',"\x0c"=>' ',"\x0d"=>' ',/*"\x20"=>' ',*/
 		);
-	static $spacecharstable = array(     
+	private static $spacecharstable = array(     
 		// space
 		"\xc2\xa0"=>' ',"\xe2\x80\x80"=>' ',"\xe2\x80\x81"=>' ',
 		"\xe2\x80\x82"=>' ',"\xe2\x80\x83"=>' ',"\xe2\x80\x84"=>' ',"\xe2\x80\x85"=>' ',
@@ -232,16 +235,16 @@ class textnormal
 		"\xe2\x81\xaf"=>' ',"\xef\xbb\xbf"=>' ',
 		);
 	
-	static $dashcharsascii = array(
+	private static $dashcharsascii = array(
 		"-"=>' ',"\\"=>' ',"/"=>' ',
 		);
-	static $dashcharstable = array(
+	private static $dashcharstable = array(
 		"\xd6\x8a"=>' ',"\xd6\xbe"=>' ',"\xe2\x80\x90"=>' ',"\xe2\x80\x91"=>' ',
 		"\xe2\x80\x92"=>' ',"\xe2\x80\x93"=>' ',"\xe2\x80\x94"=>' ',"\xe2\x80\x95"=>' ',
 		"\xe2\xb8\x97"=>' ',"\xe2\xb8\x9a"=>' ',
 		);
 	
-	static $punccharsascii = array(
+	private static $punccharsascii = array(
 		// connector
 		"_"=>'',
 		// closing opening punc
@@ -252,7 +255,7 @@ class textnormal
 		"!"=>'',"\x22"=>'',"#"=>'',"%"=>'',"&"=>'',"'"=>'',"*"=>'',","=>'',/*"."=>'',*/
 		"/"=>'',":"=>'',";"=>'',"?"=>'',"@"=>'',"\x5c"=>'',
 		);
-	static $punccharstable = array(
+	private static $punccharstable = array(
 		// close quotes
 		"\xc2\xbb"=>'',"\xe2\x80\x99"=>'',"\xe2\x80\x9d"=>'',"\xe2\x80\xba"=>'',
 		// open quotes

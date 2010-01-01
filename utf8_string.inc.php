@@ -31,12 +31,21 @@
 
 class utf8_string
 {
-	function utf8_string($string = NULL)
+	private
+		$string;
+
+	function __construct($string = NULL)
 	{
 		$this->string = $string;
 	}
 	
-	function validate($allowcontrolcodes = false)
+	public function getstring()
+	// returns string value without any conversions
+	{
+		return $this->string;
+	}
+
+	public function validate($allowcontrolcodes = false)
 	// returns true if this is a valid utf-8 string, false otherwise.  
 	// if allowcontrolcodes is false (default), then most C0 codes below 0x20, as
 	// well as C1 codes 127-159, will be denied - recommend false for html/xml
@@ -48,13 +57,7 @@ class utf8_string
 			$this->string) ? true : false;	
 	}
 	
-	function getstring()
-	// returns string value without any conversions
-	{
-		return $this->string;
-	}
-
-	function filter($replace = '', $convert = true, $allowcontrolcodes = false)
+	public function filter($replace = '', $convert = true, $allowcontrolcodes = false)
 	// filters the string.  if it is valid utf-8, then it is returned unmodified.  If it
 	// would be valid but contains control codes and allowcontrolcodes are false,
 	// they are stripped out.  Otherwise, it is assumed to be either ascii (if convert
@@ -86,9 +89,10 @@ class utf8_string
 		return $this->convertfromascii($replace);
 	}
 	
-	function tolower()
+	public function tolower()
 	// surprisingly fast
 	// this is about 10 times faster than strtolower for ascii-only strings,
+	//     (long strings; strtolower seems to do better with very short strings)
 	// and only about 1.2 times slower than it for unicode
 	// note: only selected unicode chars below 0x24f are translated, may need amendments
 	{
@@ -103,8 +107,8 @@ class utf8_string
 		return strtolower($this->string);
 	}
 	
-	// private
-	function chr($n)
+	/*
+	private function chr($n)
 	// returns a character from the unicode integer value $n.  Unlike PHP's built
 	// in chr(), this can generate utf-8 characters of up to 4 bytes
 	// this is very slow, use for single characters only
@@ -122,8 +126,7 @@ class utf8_string
 		return chr(((0xFF >> (7 - $seg)) << (7 - $seg)) | $n) . $out;
 	}
 	
-	// private
-	function ord($char)
+	private function ord($char)
 	// returns the unicode integer value of $char.  Unlike PHP's built in ord(),
 	// this works with utf-8 characters of up to 4 bytes
 	// this is extremely slow, use for single characters only
@@ -147,9 +150,9 @@ class utf8_string
 		}
 		return $val;
 	}
+	*/
 	
-	// private
-	function convertfromascii($replace = '')
+	private function convertfromascii($replace = '')
 	// this assumes ascii and removes any non-ascii bytes
 	// like convertfrom1252, slowish
 	// this is a private function only.  It does NOT convert any characters from
@@ -178,8 +181,7 @@ class utf8_string
 		return str_replace("\x0", $replace, $str);
 	}
 	
-	// private
-	function convertfrom1252($replace = '')
+	private function convertfrom1252($replace = '')
 	// this is very fast if the string contains nothing over 0x7f
 	// otherwise, at its slowest it's about 500KB per second (fairly slow)
 	{
@@ -220,7 +222,7 @@ class utf8_string
 		return strtr($str, $codemap);	
 	}
 		
-	static $lowercharstable = array(
+	private static $lowercharstable = array(
 		// case folding set by TRUT, not very comprehensive
 		"\xc3\x80"=>"\xc3\xa0","\xc3\x81"=>"\xc3\xa1","\xc3\x82"=>"\xc3\xa2",
 		"\xc3\x83"=>"\xc3\xa3","\xc3\x84"=>"\xc3\xa4","\xc3\x85"=>"\xc3\xa5",

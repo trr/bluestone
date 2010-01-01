@@ -26,7 +26,18 @@
 
 class httpresume
 {
-	function httpresume($length, $etag = null, $lastmodified = null, $vary = null, $contenttype = null)
+	private
+		$length,
+		$etag,
+		$lastmodified,
+		$vary,
+		$contenttype,
+		$ranges,
+		$notsatisfiable,
+		$boundary,
+		$totallen;
+
+	function __construct($length, $etag = null, $lastmodified = null, $vary = null, $contenttype = null)
 	{
 		$this->length = $length;
 		$this->etag = $etag;
@@ -35,7 +46,7 @@ class httpresume
 		$this->contenttype = $contenttype;
 	}
 	
-	function getranges()
+	public function getranges()
 	{
 		$this->ranges = null;
 		$this->notsatisfiable = false;
@@ -120,7 +131,7 @@ class httpresume
 		return $ranges;
 	}
 	
-	function sendheaders()
+	public function sendheaders()
 	{
 		if (headers_sent()) trigger_error('Headers already sent', E_USER_ERROR);
 		$ranges = $this->ranges;

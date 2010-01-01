@@ -27,15 +27,13 @@
 // a file-based diff uses a sliding buffer which may decrease accuracy for files greater
 // than the buffer size in some circumstances
 
-//define("DIFF_DELETE", "DEL:");
-//define("DIFF_INSERT", "INS:");
-//define("DIFF_REPLACE", "REP:");
-//define("DIFF_SEGMENTLEN", 2097152);
+// this is a static class, in that it is not intended to be instantiated.
+// in this case grouping these functions into a class is just to reduce the
+// global footprint (could also have been done with namespaces)
 
 class diff
 {
-	// static
-	function strgetsamelen($a, $b, $aoff = 0, $boff = 0, $utf8 = false)
+	public static function strgetsamelen($a, $b, $aoff = 0, $boff = 0, $utf8 = false)
 	// string comparison - returns length in bytes from the start (or given offsets)
 	// to the first non-matching byte.  utf8 mode avoids breaking utf8 chars
 	{		
@@ -50,8 +48,7 @@ class diff
 		return $len;
 	}
 	
-	// static
-	function strgetrevsamelen($a, $b)
+	public static function strgetrevsamelen($a, $b)
 	// like strgetsamelen BUT IN REVERSE - works from the end of the string backwards.
 	// no offsets or utf8 mode implemented for this one
 	{		
@@ -65,8 +62,7 @@ class diff
 		return $i + strspn(strrev($xor), "\0");
 	}
 	
-	// static
-	function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false)
+	public static function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false)
 	// substring matching - returns the length in bytes of the initial segments
 	// of the strings (from offsets) which contain no significant matching substrings.
 	// utf8 mode avoids breaking utf8 chars
@@ -104,8 +100,7 @@ class diff
 		return array($amax, $bmax);
 	}
 	
-	//static private
-	function backtrack($a, $b, $alen, $blen, $aoff, $boff, $matchsize, $cmplen = 12, $utf8 = false)
+	private static function backtrack($a, $b, $alen, $blen, $aoff, $boff, $matchsize, $cmplen = 12, $utf8 = false)
 	{
 		// shift AOFF back if there are earlier matches only a few chars ago
 		if (($pos = strpos(substr($a, $aoff+$alen+1-$matchsize, $matchsize+$cmplen-2),
@@ -127,8 +122,7 @@ class diff
 		return array($alen, $blen);
 	}
 	
-	// static private
-	function strgetdifflen_segment(
+	private static function strgetdifflen_segment(
 		$a1, $b1, $aoff, $boff, $aseg, $bseg, $asegpos, $bsegpos, $coarse)
 	// a version of strgetdifflen that can be used segment-by-segment on very large files
 	// for internal use
@@ -184,8 +178,7 @@ class diff
 		return array($amax+$asegpos-$aoff, $bmax+$bsegpos-$boff);
 	}
 	
-	//static
-	function dodiff($a, $b, $utf8 = false)
+	public static function dodiff($a, $b, $utf8 = false)
 	// returns a one way editlist in the form of array(array($aoff, $alen, $boff, $blen))
 	// for every edit between a and b.
 	// utf8 mode avoids splitting utf-8 characters on edit edges
@@ -198,7 +191,10 @@ class diff
 			$aoff += $len;
 			$boff += $len;
 			
+			// if we've found >15000 edits already, we switch to coarse mode for the rest
+			// of the comparison.  just to handle pathalogical cases a bit better
 			list($amov, $bmov) = diff::strgetdifflen($a, $b, $aoff, $boff, $utf8, $count>15000);
+
 			if ($amov!=0 || $bmov != 0) $edits[] = array($aoff, $amov, $boff, $bmov);
 			
 			$aoff += $amov;
@@ -207,15 +203,13 @@ class diff
 		return $edits;
 	}
 	
-	//static private
-	function getfilechunk($file, $offset, &$segpos)
+	private static function getfilechunk($file, $offset, &$segpos)
 	{
 		fseek($file, $offset);		$segpos = $offset;
 		return fread($file, DIFF_SEGMENTLEN);
 	}
 	
-	//static
-	function dodiff_file($filenamea, $filenameb)
+	public static function dodiff_file($filenamea, $filenameb)
 	// care MUST be taken that the filenames provided are safe
 	{
 		$alen = filesize($filenamea);		$blen = filesize($filenameb);
@@ -268,9 +262,10 @@ class diff
 		return $edits;
 	}
 	
-	//static
-	function reverse($editlist)
-	// reverse an editlist
+	public static function reverse($editlist)
+	// reverses an editlist: the 'source' swaps with the 'destination'
+	// re-orders the result so it is still in the order it appears in the
+	// new source (not that that would occur often)
 	{
 		$templist = array();
 		foreach ($editlist as $edit)
@@ -279,8 +274,7 @@ class diff
 		return $templist;
 	}
 	
-	// static
-	function mergeleft($ab, $ac)
+	public static function mergeleft($ab, $ac)
 	// given two editlists A->B and A->C, returns an editlist A->X where X
 	// is a new document created by a 3-way merge.  The editlist returned contains
 	// additional information about how to build the string X from only information
@@ -322,11 +316,10 @@ class diff
 		return $mergelist;
 	}
 	
-	// private static
-	function sourcesort($a, $b)
+	private static function sourcesort($a, $b)
 	{ return $a[0]==$b[0] ? $a[1]-$b[1] : $a[0]-$b[0]; }
 	
-	function assemblemerge($mergelist, $a, $b, $c /* , ... */)
+	public static function assemblemerge($mergelist, $a, $b, $c /* , ... */)
 	// returns new string formed by sources $a, $b, $c, ..., ... with merge 
 	// instructions $mergelist
 	{
@@ -341,15 +334,12 @@ class diff
 	}
 }
 
-//function uhash($d){return trim(strtr(base64_encode(hash('sha256',$d,1)),'+/=','-_ '));}
-//echo uhash('arand');
-
 /*
 set_time_limit(12);
 
-$a = str_repeat("The quick brown fox jumps over the lazy dog", 1);
-$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 1);
-$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 1);
+$a = str_repeat("The quick brown fox jumps over the lazy dog", 10);
+$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 10);
+$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 10);
 echo (strlen($a) + strlen($b)) . "ready\n";
 
 //file_put_contents('outputa.txt', $a);
@@ -358,20 +348,19 @@ echo (strlen($a) + strlen($b)) . "ready\n";
 list($sec, $usec) = explode(' ', microtime());
 
 set_time_limit(12);
-//echo strlen($b) . "ready";
 
 function binhash($d){return hash('sha1',$d,1);}
 
-for ($i = 0; $i < 1000; $i++)
+for ($i = 0; $i < 100; $i++)
 {
 	//$result = uhash(uniqid('c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys', true)
 	//	.'ace'.serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));
-	$result = randhash();
+	// $result = randhash();
 	
-	//$el1 = diff::dodiff($a, $b, true);
-	//$el2 = diff::dodiff($a, $c, true);
-	//$result = diff::mergeleft($el1, $el2);
-	//$result = diff::assemblemerge($result, $a, $b, $c);
+	$el1 = diff::dodiff($a, $b, true);
+	$el2 = diff::dodiff($a, $c, true);
+	$result = diff::mergeleft($el1, $el2);
+	$result = diff::assemblemerge($result, $a, $b, $c);
 	//$result = diff::dodiff_file('outputa.txt', 'outputb.txt');
 }
 
@@ -382,6 +371,6 @@ echo count($result);
 echo "\n$elapsed\n";
 echo substr(var_export($result, true), 0, 6000);
 exit;
-*/
+ */
 
 ?>

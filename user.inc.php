@@ -33,19 +33,25 @@ define('USER_STRENGTHENSESSIONS', true);
 
 class user
 {
-	function user()
+	private
+		$context,
+		$debug,
+		$db,
+		$prefix,
+		$session_exists = false,
+		$sessionhash = null,
+		$logged_in = false,
+		$userdetails = null,
+		$status = null,
+		$safe_token;
+
+	function __construct()
 	{
 		$this->context = &context::getinstance();
 		$this->debug = &debug::getinstance();
-		
-		$this->session_exists = false;
-		$this->sessionhash = null;
-		$this->logged_in = false;
-		$this->userdetails = null;
-		$this->status = null;
 	}
 	
-	function getdata()
+	public function getdata()
 	{
 		// check for existing session
 		$sessionhash = $this->context->load_var('session', 'COOKIE', 'location');
@@ -145,7 +151,7 @@ class user
 			);
 	}
 	
-	function sourcecheck($oldip, $oldua)
+	private function sourcecheck($oldip, $oldua)
 	// checks if the ip address and user agent currently in use is sufficiently similar to
 	// the recorded ones given, to help make session hijacking harder
 	{
@@ -160,7 +166,7 @@ class user
 			: ($ipstart1 == $ipstart2 || $oldua == $uahash);
 	}
 	
-	function handlesuspect($userid, $newloginid = null)
+	private function handlesuspect($userid, $newloginid = null)
 	// what to do when we see something suspicious like and invalid hash re-used
 	// or session var crossing IP and user-agent boundaries
 	{
@@ -181,7 +187,7 @@ class user
 		else $this->status = 'sessionfail_suspicious';
 	}
 
-	function startsession($userid = 0, $seqid = 0)
+	private function startsession($userid = 0, $seqid = 0)
 	// starts a session, with optional userid and login sequence ID.
 	// if a session is already active & not logged in, modifies the existing session instead 
 	{
@@ -218,7 +224,7 @@ class user
 				WHERE session_lastvisited <" . ($timenow-USER_SESSIONLENGTH));
 	}
 	
-	function processlogout()
+	public function processlogout()
 	// logs the user out.  also loses session and "stay logged in" for this browser
 	{
 		if (!$this->session_exists) return;
@@ -241,7 +247,7 @@ class user
 		$this->logged_in = $this->session_exists = false;
 	}
 	
-	function processlogin($userdetails, $persistent = false, $oldseqid = null)
+	public function processlogin($userdetails, $persistent = false, $oldseqid = null)
 	{ 
 		if (empty($userdetails['user_ID'])) return;
 		$hashstillvalid = $persistent ? 1 : 0;
@@ -302,28 +308,25 @@ class user
 			$timenow+USER_PERSISTLENGTH, '/', '', false, true);
 	}
 	
-	// static
-	function randhash($seed = '')
+	public static function randhash($seed = '')
 	// generates random hash, should be hard to predict but slowish
 	{		
 		return user::uhash(uniqid($seed,true).'c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys'
 			. serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));		
 	}
 	
-	// static
-	function uhash($d)
+	public static function uhash($d)
 	{
-		// requires PHP5
 		return trim(strtr(base64_encode(hash('sha256',$d,1)),'+/=','-_ '));
 	}
 
-	function setdb(&$db)
+	public function setdb(&$db)
 	{
 		$this->db = &$db;
 		$this->prefix = $this->db->get_prefix();
 	}
 	
-	function &getinstance()
+	public static function &getinstance()
 	{
 		static $instance;
 		if (!isset($instance)) $instance = new user(); 

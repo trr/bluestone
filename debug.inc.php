@@ -36,17 +36,18 @@ class debug
 		$tasks = array(),
 		$nexttaskid = 0,
 		$noticeid = 0,
-		$noticetime,
-		$error_callback,
+		$noticetime = array(null, null),
 		$debugmode,
-		$halton = null;
+		$useerrorhandler = false;
 
-	function __construct($debugmode)
+	function __construct($debugmode = false, $useerrorhandler = true)
 	// constructor
 	// to use this as a singleton, use getinstance() instead
 	{
     $this->debugmode = $debugmode;
 		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
+		
+		$this->useerrorhandler($useerrorhandler);
   }
 
 	public function notice($module, $notice, $data = null)
@@ -61,8 +62,7 @@ class debug
 			$elapsed = (float)($sec - $this->starttime_sec) + (float)($usec - $this->starttime_usec);
 			$this->noticetime = array($sec, $usec);
 		}
-		else
-			$elapsed = null;
+		else $elapsed = null;
 
 		$this->notices[++$this->noticeid] = array(
 			'module' => $module,
@@ -73,10 +73,10 @@ class debug
 		);
 
 		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
-		if ($this->noticeid > 50)
+		if ($this->noticeid > 80)
 		{
 			if (strlen($this->notices[$this->noticeid - 50]['data']) > 80)
-				$this->notices[$this->noticeid - 50]['data'] = substr($this->notices[$this->noticeid - 50]['data'], 0, 65) . '... (truncated)';
+				$this->notices[$this->noticeid - 80]['data'] = substr($this->notices[$this->noticeid - 80]['data'], 0, 65) . '... (truncated)';
 			if ($this->noticeid > 251)
 				unset($this->notices[$this->noticeid - 250]);
 			elseif ($this->noticeid == 251)
@@ -89,12 +89,9 @@ class debug
 	{
 		$this->notice($module, $taskname, $data);
 
-	  if ($this->debugmode)
-			list($sec, $usec) = $this->noticetime;
-		else
-			$sec = $usec = null;
-		
-	  $this->tasks[$this->nexttaskid] = array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
+	  list($sec, $usec) = $this->noticetime;
+		$this->tasks[$this->nexttaskid] =
+			array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
 
     return $this->nexttaskid++;
 	}
@@ -102,32 +99,38 @@ class debug
 	public function endtask($taskid)
 	{
 	  if (!isset($this->tasks[$taskid])) return false;
-		
 		$task = &$this->tasks[$taskid];
 		
 		if ($this->debugmode)
 		{
 		  list($sec, $usec) = explode(' ', microtime());
-			$taskelapsed = (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
+			$this->notices[$task['noticeid']]['taskelapsed'] = 
+			 (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
 		}
-		else
-			$taskelapsed = null;
-		
-		$this->notices[$task['noticeid']]['taskelapsed'] = $taskelapsed;
 		
 		unset($this->tasks[$taskid]);
 	}
 	
-	public function useerrorhandler()
+	public function useerrorhandler($useerrorhandler = true)
+	// allows you to enable/disable whether this module's error handler should
+	// be used.  note that the error handler is now used by default, hence
+	// calling this should be unnecessary if you want it turned _on_ 
 	{
-	  // if we haven't explicitly specified which errors to halt on,
-		// infer this from the
-		// current error_reporting value 
-	  if ($this->halton === NULL) $this->halton = error_reporting();
-		
-		// all errors should be handled by this module's error handler
-		error_reporting(E_ALL);
-		set_error_handler(array(&$this, 'debug_errorhandler'));
+		if ($useerrorhandler == $this->useerrorhandler) return;
+		else $this->useerrorhandler = $useerrorhandler;
+
+		if ($useerrorhandler)
+		{
+			// in debug mode we handle all errors
+			if ($this->debugmode) error_reporting(-1);
+			set_error_handler(array(&$this, 'debug_errorhandler'));
+			set_exception_handler(array(&$this, 'debug_errorhandler'));
+		}
+		else
+		{
+			restore_error_handler();
+			restore_exception_handler();
+		}
 	}
 	
 	public static function &getinstance($debugmode = true)
@@ -137,76 +140,34 @@ class debug
   	return $instance;
   }
 	
-	public function sethalton($code)
-	{
-	  $this->halton = $code;
-	}
-	
-	public function setdebugmode($mode)
-	// mode is true or false.  sets status of debug mode, which gives additional
-	// diagnostic information about errors and notices.  should be set to off
-	// in production environments unless an administrator is logged in
-	{
-	  if ($mode and !$this->debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
-		$this->debugmode = $mode;
-	}
-	
 	public function seterrorcallback($callback)
-	// sets a file to be executed when a fatal error occurs.  the file should
-	// output an error message to the screen.  in debug mode, this file is not
+	// sets a function to be executed when a fatal error occurs.  it could
+	// output an error message to the screen.  in debug mode, this is not
 	// used
 	{
 		$this->error_callback = $callback;
 	}
 	
-	private function haltif($errno, $dooutput = true)
+	private function halt($message = '')
 	{
-		if ($errno & $this->halton)
+		if (!headers_sent() && empty($this->error_callback)) header('HTTP/1.1 500 Internal Server Error');
+		while (ob_get_length() !== false) ob_end_clean();
+			
+		if (!$this->debugmode)
 		{
-			while (ob_get_length() !== false) ob_end_clean();
-				
-			if (!$this->debugmode)
-			{
-				if (!empty($this->error_callback))
-					call_user_func($this->error_callback, 'Application Error');
-				else
-				{
-					if (!headers_sent()) header('HTTP/1.1 500 Internal Server Error');
-					echo '<h1>Internal Server Error</h1><p>The server encountered an internal error or misconfiguration and was unable to complete your request.</p><p>We apologise for the inconvenience this problem may have caused.  This problem has been brought to the attention of the webmaster and will be fixed as soon as possible.';
-				}				
-				exit;
-			}
-			echo '<h1>Error Notice</h1><p>Your site is currently in DEBUG mode.  DEBUG mode should
-				never be enabled on a site that is accessible to the public, as it might reveal secret
-				information that an untrusted person could use to gain access.</p>';
-			
-			$backtrace = debug_backtrace();
-		  	
-			$totallen = 0; // prevent backtrace being too big
-			foreach ($backtrace as $row)
-			{
-				if (isset($row['class']) && $row['class'] == 'debug') continue;
-				if ($totallen >= 16384)
-				{
-					$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
-					break;
-				}
-				$output = '';
-		  		foreach ($row as $key => $var)
-				{
-		  			if ($output) $output .= ', ';
-					$output .= $key . ': ' . print_r($var, true);
-				}
-				if (strlen($output) > 8192)
-					$output = substr($output, 0, 8192) . '... (truncated)';
-				$this->notice('debug', 'backtrace', $output);
-				$totallen += strlen($output);
-			}
-			
-			echo $this->getnoticeshtml();
+			if (!empty($this->error_callback))
+				call_user_func($this->error_callback, 'Application Error');
+			else
+				require(BLUESTONE_DIR . 'system/fatalerror.inc.php');
 			exit;
 		}
-		if ($this->debugmode) echo "Debug Mode Notice: Non-fatal errors have occurred.  Please see error log.";
+
+		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
+		if ($message != '') echo '<p>' . htmlspecialchars($message) . '</p>';
+		echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
+
+		echo $this->getnoticeshtml();
+		exit;
 	}
 	
 	public function getnoticeshtml()
@@ -216,9 +177,9 @@ class debug
 		
 		foreach ($this->notices as $notice)
 		{
-			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 5) : '&nbsp;';
+			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 2) : '&nbsp;';
 			$data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
-			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 5) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
+			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 2) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
 		}		
 		
 		$output .= '</table>';
@@ -229,47 +190,83 @@ class debug
 	public function getnoticestext()
 	{
 	  if (empty($this->notices)) return '';
-	  $output =  'Time (ms)   : Task (ms)   : Module           : Notice Type                      : Data' . "\r\n";
-    $output .= '............:.............:..................:..................................:.....' . "\r\n";
+	  $output =  'Time (ms) : Task (ms) : Module           : Notice Type                      : Data' . "\r\n";
+    $output .= '..........:...........:..................:..................................:.....' . "\r\n";
     
     foreach ($this->notices as $notice)
 		{
-			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 5), 11, ' ', STR_PAD_LEFT) : '           ';
-			$output .= str_pad(number_format($notice['elapsed'] * 1000, 5), 11, ' ', STR_PAD_LEFT) . ' : ' . $taskelapsed . ' : ' . str_pad(substr($notice['module'], 0, 16), 16) . ' : ' . str_pad($notice['notice'], 32) . ' : ' . trim(strtr($notice['data'], "\r\n\t", '   ')) . "\r\n";
+			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) : '         ';
+			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) . ' : ' . $taskelapsed . ' : ' . str_pad(substr($notice['module'], 0, 16), 16) . ' : ' . str_pad($notice['notice'], 32) . ' : ' . trim(strtr($notice['data'], "\r\n\t", '   ')) . "\r\n";
 		}		
 		
 	  return $output;
 	}
 	
-	public function debug_errorhandler($errno, $errstr, $errfile, $errline)
-	// designed as a PHP custom error handler - it logs it into the debug notices as
+	public function debug_errorhandler($err, $errstr='', $errfile='', $errline='')
+	// designed as a custom error handler - it logs it into the debug notices as
 	// a notice, unless it's a fatal error.
 	{
-		// we need to double check if this error needs reporting
-		if (!($errno & error_reporting())) return;
-		
-		$errortypes = array(
-			E_ERROR           => 'Error',
-			E_WARNING         => 'Warning',
-			E_PARSE           => 'Parse Error',
-			E_NOTICE          => 'Notice',
-			E_CORE_ERROR      => 'Core Error',
-			E_CORE_WARNING    => 'Core Warning',
-			E_COMPILE_ERROR   => 'Compile Error',
-			E_COMPILE_WARNING => 'Compile Warning',
-			E_USER_ERROR      => 'User Error',
-			E_USER_WARNING    => 'User Warning',
-			E_USER_NOTICE     => 'User Notice'
-			);					 
-											 
-		$errortype = (isset($errortypes[$errno])) ? $errortypes[$errno] : 'Unknown Error';		
-		
-		$this->notice('debug', 'PHP error handling', $errortype . ' in ' . $errfile . ', line ' . $errline . ': ' . $errstr);
-		$this->haltif($errno);
-	}
-  
-}
+		if (is_object($err))
+		{
+			$errortype = get_class($err);
+			$errcode = $err->getCode();
+			if ($errcode) $errortype .= " (code $errcode)";
+			$errstr = $err->getMessage();
+			$errfile = $err->getFile();
+			$errline = $err->getLine();
+			$backtrace = $err->getTrace();
+		}
+		else
+		{
+			// we need to double check if this error needs reporting
+			if (!($err & error_reporting())) return;
 
-	
+			$errortypes = array(
+				E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parse Error',
+				E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning',
+				E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning',
+				E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
+				E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
+				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
+				);					 
+			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
+			$backtrace = debug_backtrace();
+			foreach ($backtrace as $id => $row)
+				if (isset($row['class']) && $row['class'] == 'debug')
+					unset($backtrace[$id]);
+		}
+		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr");
+		$this->logtrace($backtrace);
+		$this->halt("$errortype in $errfile line $errline: $errstr");
+	}
+
+	private function logtrace($trace)
+	{
+		foreach ($trace as $row)
+		{
+			$func = isset($row['function']) ? $row['function'] : null;
+			if (!empty($row['class'])) $func = $row['class'] . '::' . $func;
+			$args = array();
+			if (isset($row['args']) && is_array($row['args'])) foreach ($row['args'] as $arg)
+			{
+				$argtext = var_export($arg, true);
+				if (strlen($argtext) > 32)
+				{
+					$argtext = gettype($arg);
+					if (is_string($arg)) $argtext .= '[' . strlen($arg) . ']';
+					elseif (is_array($arg)) $argtext .= '[' . count($arg) . ']';
+					elseif (is_object($arg)) $argtext = get_class($arg);
+				}
+				$args[] = $argtext;
+			}
+			$file = isset($row['file']) ? $row['file'] : '(unknown file)';
+			$line = isset($row['line']) ? $row['line'] : '(unknown line)';
+			$args = implode(', ', $args);
+			$this->notice('debug', 'Backtrace', 
+				"$func($args) in $row[file] line $row[line]"
+				);
+		}
+	}
+}
 
 ?>
