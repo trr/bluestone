@@ -165,30 +165,7 @@ class debug
 		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
 		if ($message != '') echo '<p>' . htmlspecialchars($message) . '</p>';
 		echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
-		
-		$backtrace = debug_backtrace();
-			
-		$totallen = 0; // prevent backtrace being too big
-		foreach ($backtrace as $row)
-		{
-			if (isset($row['class']) && $row['class'] == 'debug') continue;
-			if ($totallen >= 16384)
-			{
-				$this->notice('debug', 'backtrace truncated', 'backtrace data too long; truncated');
-				break;
-			}
-			$output = '';
-			foreach ($row as $key => $var)
-			{
-				if ($output) $output .= ', ';
-				$output .= $key . ': ' . print_r($var, true);
-			}
-			if (strlen($output) > 4096)
-				$output = substr($output, 0, 4096) . '... (truncated)';
-			$this->notice('debug', 'Backtrace', $output);
-			$totallen += strlen($output);
-		}
-		
+
 		echo $this->getnoticeshtml();
 		exit;
 	}
@@ -237,6 +214,7 @@ class debug
 			$errstr = $err->getMessage();
 			$errfile = $err->getFile();
 			$errline = $err->getLine();
+			$backtrace = $err->getTrace();
 		}
 		else
 		{
@@ -252,9 +230,42 @@ class debug
 				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
 				);					 
 			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
+			$backtrace = debug_backtrace();
+			foreach ($backtrace as $id => $row)
+				if (isset($row['class']) && $row['class'] == 'debug')
+					unset($backtrace[$id]);
 		}
 		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr");
+		$this->logtrace($backtrace);
 		$this->halt("$errortype in $errfile line $errline: $errstr");
+	}
+
+	private function logtrace($trace)
+	{
+		foreach ($trace as $row)
+		{
+			$func = isset($row['function']) ? $row['function'] : null;
+			if (!empty($row['class'])) $func = $row['class'] . '::' . $func;
+			$args = array();
+			if (isset($row['args']) && is_array($row['args'])) foreach ($row['args'] as $arg)
+			{
+				$argtext = var_export($arg, true);
+				if (strlen($argtext) > 32)
+				{
+					$argtext = gettype($arg);
+					if (is_string($arg)) $argtext .= '[' . strlen($arg) . ']';
+					elseif (is_array($arg)) $argtext .= '[' . count($arg) . ']';
+					elseif (is_object($arg)) $argtext = get_class($arg);
+				}
+				$args[] = $argtext;
+			}
+			$file = isset($row['file']) ? $row['file'] : '(unknown file)';
+			$line = isset($row['line']) ? $row['line'] : '(unknown line)';
+			$args = implode(', ', $args);
+			$this->notice('debug', 'Backtrace', 
+				"$func($args) in $row[file] line $row[line]"
+				);
+		}
 	}
 }
 
