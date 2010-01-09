@@ -24,12 +24,7 @@
 // class user - this manages aspects of tracking a user securely, logged in or not,
 // through sessions, "stay logged in" and CSRF protection tokens
 
-
 // this class needs access to the context because it reads and writes get variables and cookies
-
-define('USER_SESSIONLENGTH', 2400);
-define('USER_PERSISTLENGTH', 86400*90);
-define('USER_STRENGTHENSESSIONS', true);
 
 class user
 {
@@ -43,12 +38,19 @@ class user
 		$logged_in = false,
 		$userdetails = null,
 		$status = null,
-		$safe_token;
+		$safe_token,
+		$sessionlength,
+		$persistlength,
+		$strongsessions;
 
-	function __construct()
+	function __construct($sessionlength = 2400, $persistdays = 90, $strongsessions = true)
 	{
 		$this->context = &context::getinstance();
 		$this->debug = &debug::getinstance();
+
+		$this->sessionlength = $sessionlength;
+		$this->persistlength = min($persistdays, 365) * 86400;
+		$this->strongsessions = $strongsessions;
 	}
 	
 	public function getdata()
@@ -57,7 +59,7 @@ class user
 		$sessionhash = $this->context->load_var('session', 'COOKIE', 'location');
 		if ($sessionhash)
 		{
-			$expire = TIMENOW - USER_SESSIONLENGTH;
+			$expire = TIMENOW - $this->sessionlength;
 			$userdetails = $this->db->query_single("
 				SELECT 
 					u.*, session_IP AS ps_ip, session_uahash AS ps_ua,
@@ -82,8 +84,7 @@ class user
 				$timenow = TIMENOW;
 				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 				$ipsl = addslashes($ip);
-				$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
-				$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
+				$uahash = $this->getuahash();
 				$this->db->query("
 					UPDATE {$this->prefix}session SET session_IP='$ipsl',
 					session_lastvisited=$timenow, session_uahash=$uahash
@@ -100,7 +101,7 @@ class user
 			list($userid, $farhash) = explode('.', $loginuser);
 			$userid = (int)$userid;
 			$farhash = addslashes($farhash);
-			$expire = TIMENOW - USER_PERSISTLENGTH;
+			$expire = TIMENOW - $this->persistlength;
 			
 			$userdetails = $this->db->query_single("
 				SELECT
@@ -156,12 +157,11 @@ class user
 	// the recorded ones given, to help make session hijacking harder
 	{
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
-		$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
+		$uahash = $this->getuahash();
 		$ipstart1 = preg_replace('/\d++[.:]\d++$|\d++$/', '', $oldip);
 		$ipstart2 = preg_replace('/\d++[.:]\d++$|\d++$/', '', $ip);
 
-		return defined('USER_STRENGTHENSESSIONS') && USER_STRENGTHENSESSIONS
+		return $this->strongsessions
 			? ($ipstart1 == $ipstart2 && $oldua == $uahash)
 			: ($ipstart1 == $ipstart2 || $oldua == $uahash);
 	}
@@ -187,6 +187,13 @@ class user
 		else $this->status = 'sessionfail_suspicious';
 	}
 
+	private function getuahash()
+	{
+		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
+		$uahash = crc32(preg_replace('/[^a-za-z();]++/', ' ', $ua));
+		return ($uahash >= 0x80000000) ? ($uahash - 0x100000000) : $uahash;
+	}
+
 	private function startsession($userid = 0, $seqid = 0)
 	// starts a session, with optional userid and login sequence ID.
 	// if a session is already active & not logged in, modifies the existing session instead 
@@ -205,8 +212,7 @@ class user
 			
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 		$ipsl = addslashes($ip);
-		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
-		$uahash = crc32(preg_replace('/[^a-zA-Z();]++/', ' ', $ua));
+		$uahash = $this->getuahash();
 		$timenow = TIMENOW;
 		
 		$this->db->query("
@@ -221,7 +227,7 @@ class user
 		// occasionally delete expired sessions
 		if (mt_rand(0,100 == 50))
 			$this->db->query("DELETE FROM {$this->prefix}session 
-				WHERE session_lastvisited <" . ($timenow-USER_SESSIONLENGTH));
+				WHERE session_lastvisited <" . ($timenow-$this->sessionlength));
 	}
 	
 	public function processlogout()
@@ -291,7 +297,7 @@ class user
 		}
 		if (mt_rand(0,200) == 50) // occasional clean up, also saves some space
 		{
-			$expire = TIMENOW - USER_PERSISTLENGTH;
+			$expire = TIMENOW - $this->persistlength;
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_hash=NULL, userlogin_newID=0, userlogin_hashstillvalid=0
 				WHERE userlogin_userid=$userid AND userlogin_time<$expire
@@ -305,7 +311,7 @@ class user
 		
 		if ($persistent) $this->context->setcookie('stay_logged_in', 
 			$this->userdetails['user_ID'] . ".$userhash",
-			$timenow+USER_PERSISTLENGTH, '/', '', false, true);
+			$timenow+$this->persistlength, '/', '', false, true);
 	}
 	
 	public static function randhash($seed = '')
