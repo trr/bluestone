@@ -27,6 +27,16 @@ require_once(BLUESTONE_DIR . 'debug.inc.php');
 
 class tester
 {
+	private
+		$asserts = 0,
+		$passed = true,
+		$failmsg = null;
+
+	private static
+		$fails = 0,
+		$tests = 0,
+		$classes = 0;
+
 	public static function testdir($dir, $recurse = true)
 		// test all test classes found in all php files in given directory.
 		// this will cause all code in all the php files to be executed, so
@@ -75,19 +85,17 @@ class tester
 		foreach ($methods as $method) if (preg_match('#^test#i', $method))
 		{
 			$obj = new $classname();
-			$this->result(true, true);
 			$obj->$method();
-			$result = $this->result();
-			$this->tally($result ? 0 : 1, 1);
 			unset($obj);
 		}
-		$this->tally(0, 0, 1);
 	}
 
 	public function assert($val, $op='==', $rval=true)
 		// makes an assertion.  when given with one argument $val, asserts that
 		// $val evaluates to true.  or you can specify an operator and a right value
 	{
+		$this->asserts++;
+		if (!$this->passed) return false;
 		switch ($op)
 		{
 		case '==': $p = ($val == $rval); break;
@@ -101,32 +109,14 @@ class tester
 		case '&': $p = ($val & $rval ? true : false); break;
 		default: trigger_error("Unknown operator '$op':", E_USER_ERROR);
 		}
-		$this->result($p);
-	}
-
-	private function result($point = true, $reset = false)
-	{
-		static $pass = true;
-		if (!$reset) 
+		if (!$p)
 		{
-			if (!$point) $pass = false;
+			$this->passed = false;
+			$this->failmsg = "Assertion failed: " . var_export($val, true) . " is not $op "
+				. var_export($rval, true);
+			return false;
 		}
-		else $pass = true;
-		return $pass;
-	}
-
-	private function tally($fails=0, $tests=0, $classes=0, $reset = false)
-	{
-		static 
-			$f = 0,
-			$t = 0,
-			$c = 0;
-
-		$f += $fails;
-		$t += $tests;
-		$c += $classes;
-		if ($reset) $f = $t = $c = 0;
-		return array($f, $t, $c);
+		return true;
 	}
 }
 
