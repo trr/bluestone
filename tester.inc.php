@@ -27,7 +27,11 @@ require_once(BLUESTONE_DIR . 'debug.inc.php');
 
 class tester
 {
-	public static function testdir($dir)
+	public static function testdir($dir, $recurse = true)
+		// test all test classes found in all php files in given directory.
+		// this will cause all code in all the php files to be executed, so
+		// only execute in a trusted directory which consists only of test
+		// classes.  will recurse into subdirectories by default.
 	{
 		$debug = debug::getinstance(true);
 		$dir = rtrim($dir, '\\/') . '/';
@@ -37,42 +41,92 @@ class tester
 			if ($filename != '.' && $filename != '..')
 		{
 			if (is_dir($dir . $filename))
-				$tested += tester::testdir($dir . $filename);
+			{
+				if ($recurse) tester::testdir($dir . $filename, true);
+			}
 			elseif (preg_match('#.\.php[56]?$#i', $filename))
-				$tested += tester::testfile($dir . $filename);
+				tester::testfile($dir . $filename);
 		}
 	}
 
 	public static function testfile($file)
+		// test all test classes found in the given file.
 	{
 		$debug = debug::getinstance(true);
 		$before = get_declared_classes();
 		require($file);
 		$after = get_declared_classes();
 		$newclasses = array_diff($after, $before);
-		$tested = 0;
 		foreach ($newclasses as $classname)
 		{
 			if ($classname == 'tester' || !is_subclass_of($classname, 'tester')) continue;
-			$tested += tester::testclass($classname);
+			tester::testclass($classname);
 		}
-		return $tested;
 	}
 
 	public static function testclass($classname)
+		// test all test classes found in the given classname.  the class
+		// must have already been declared, ie the file it is declared in
+		// must already have been parsed.
 	{
 		$debug = debug::getinstance(true);
 		if ($classname == 'tester' || !is_subclass_of($classname, 'tester')) return 0;
 		$methods = get_class_methods($classname);
-		$tested = 0;
 		foreach ($methods as $method) if (preg_match('#^test#i', $method))
 		{
 			$obj = new $classname();
+			$this->result(true, true);
 			$obj->$method();
-			$tested++;
+			$result = $this->result();
+			$this->tally($result ? 0 : 1, 1);
 			unset($obj);
 		}
-		return $tested;
+		$this->tally(0, 0, 1);
+	}
+
+	public function assert($val, $op='==', $rval=true)
+		// makes an assertion.  when given with one argument $val, asserts that
+		// $val evaluates to true.  or you can specify an operator and a right value
+	{
+		switch ($op)
+		{
+		case '==': $p = ($val == $rval); break;
+		case '>=': $p = ($val >= $rval); break;
+		case '<=': $p = ($val <= $rval); break;
+		case '>': $p = ($val > $rval); break;
+		case '<': $p = ($val < $rval); break;
+		case '!=': $p = ($val != $rval); break;
+		case '===': $p = ($val === $rval); break;
+		case '|': $p = ($val | $rval ? true : false); break;
+		case '&': $p = ($val & $rval ? true : false); break;
+		default: trigger_error("Unknown operator '$op':", E_USER_ERROR);
+		}
+		$this->result($p);
+	}
+
+	private function result($point = true, $reset = false)
+	{
+		static $pass = true;
+		if (!$reset) 
+		{
+			if (!$point) $pass = false;
+		}
+		else $pass = true;
+		return $pass;
+	}
+
+	private function tally($fails=0, $tests=0, $classes=0, $reset = false)
+	{
+		static 
+			$f = 0,
+			$t = 0,
+			$c = 0;
+
+		$f += $fails;
+		$t += $tests;
+		$c += $classes;
+		if ($reset) $f = $t = $c = 0;
+		return array($f, $t, $c);
 	}
 }
 
