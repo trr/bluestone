@@ -133,10 +133,10 @@ class debug
 		}
 	}
 	
-	public static function &getinstance($debugmode = true)
+	public static function &getinstance($debugmode = false, $useerrorhandler = true)
   {
     static $instance;
-  	if (!isset($instance)) $instance = new debug($debugmode); 
+  	if (!isset($instance)) $instance = new debug($debugmode, $useerrorhandler); 
   	return $instance;
   }
 	
