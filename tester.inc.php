@@ -27,15 +27,16 @@ require_once(BLUESTONE_DIR . 'debug.inc.php');
 
 class tester
 {
-	private
+	protected
 		$asserts = 0,
 		$passed = true,
 		$failmsg = null;
 
 	private static
-		$fails = 0,
 		$tests = 0,
-		$classes = 0;
+		$classes = 0,
+		$asserts_total = 0,
+		$errors = array();
 
 	public static function testdir($dir, $recurse = true)
 		// test all test classes found in all php files in given directory.
@@ -82,12 +83,19 @@ class tester
 		$debug = debug::getinstance(true);
 		if ($classname == 'tester' || !is_subclass_of($classname, 'tester')) return 0;
 		$methods = get_class_methods($classname);
+		$hastests = false;
 		foreach ($methods as $method) if (preg_match('#^test#i', $method))
 		{
+			$hastests = true;
 			$obj = new $classname();
 			$obj->$method();
+			if (!$obj->passed)
+				self::$errors[$classname . '::' . $method] = $obj->failmsg;
+			self::$asserts_total += $obj->asserts;
 			unset($obj);
+			self::$tests++;
 		}
+		if ($hastests) self::$classes++;
 	}
 
 	public function assert($val, $op='==', $rval=true)
