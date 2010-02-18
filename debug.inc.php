@@ -163,7 +163,7 @@ class debug
 		}
 
 		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
-		if ($message != '') echo '<p>' . htmlspecialchars($message) . '</p>';
+		if ($message != '') echo '<p style="background:#c00;color:#fff;font-weight:bold;padding:6px 8px;">' . htmlspecialchars($message) . '</p>';
 		echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
 
 		echo $this->getnoticeshtml();
