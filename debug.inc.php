@@ -168,13 +168,13 @@ class debug
 			exit;
 		}
 
-		if ($htmlformat) echo '<div style="background:$fff;color:#000;font:small sans-serif!important">';
+		if ($htmlformat) echo '<div style="background:$fff;color:#000">';
 
 		if ($message != '')
 		{
 			$c = $errorlevel ? '#c00' : '#080';
 			echo $htmlformat 
-				? "<p style=\"background:$c;color:#fff;font-weight:bold;padding:6px\">"
+				? "<p style=\"background:$c;color:#fff;font:bold large sans-serif;padding:12px\">"
 				: str_repeat("=============",6) . "\n";
 			echo $htmlformat 
 				? htmlspecialchars($message) 
@@ -186,14 +186,14 @@ class debug
 
 		echo $htmlformat ? $this->getnoticeshtml(true) : $this->getnoticestext(true);
 		if ($htmlformat)
-			echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
+			echo '<p style="font:small sans-serif"><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
 		exit((int)$errorlevel);
 	}
 	
 	public function getnoticeshtml($onlyerrors = false)
 	{
 		if (!count($this->notices)) return '';
-		$output = '<table border="1" cellspacing="0" cellpadding="4" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
+		$output = '<table style="font:small sans-serif" border="1" cellspacing="0" cellpadding="3" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
 		
 		foreach ($this->notices as $notice)
 		{
