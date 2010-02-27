@@ -29,73 +29,113 @@ class tester
 {
 	protected
 		$asserts = 0,
-		$passed = true,
-		$failmsg = null;
+		$passed = true;
 
 	private static
+		$registered = false,
+		$donottest = array('tester'),
 		$tests = 0,
 		$classes = 0,
-		$asserts_total = 0,
-		$errors = array();
+		$errors = 0,
+		$asserts_total = 0;
 
-	public static function testdir($dir, $recurse = true)
-		// test all test classes found in all php files in given directory.
-		// this will cause all code in all the php files to be executed, so
-		// only execute in a trusted directory which consists only of test
-		// classes.  will recurse into subdirectories by default.
+	public static function register()
+	// this is actually called when this file is included.  it registers
+	// a shutdown function which searches for all declared tests classes
+	// and runs them.  to prevent this happening, call tester::noauto()
+	{
+		if (self::$registered) return;
+		register_shutdown_function(array('tester', '_sdfunc'));
+		self::$registered = true;
+	}
+
+	public static function _sdfunc()
+	{
+		self::runincluded();
+		if (!self::$classes) return;
+		self::report();
+	}
+
+	public static function runincluded()
 	{
 		$debug = debug::getinstance(true);
-		$dir = rtrim($dir, '\\/') . '/';
-		$hnd = opendir($dir);
-		$tested = 0;
-		while (($filename = readdir($hnd)) !== false)
-			if ($filename != '.' && $filename != '..')
+		$classes = get_declared_classes();
+		foreach ($classes as $classname)
+			if (is_subclass_of($classname, 'tester') 
+				&& !in_array($classname, self::$donottest))
 		{
-			if (is_dir($dir . $filename))
-			{
-				if ($recurse) tester::testdir($dir . $filename, true);
-			}
-			elseif (preg_match('#.\.php[56]?$#i', $filename))
-				tester::testfile($dir . $filename);
+			tester::runclass($classname);
 		}
 	}
 
-	public static function testfile($file)
-		// test all test classes found in the given file.
+	public static function runclass($classname)
+	// test all test methods found in the given classname.  the class
+	// must have already been declared, ie the file it is declared in
+	// must already have been parsed.
 	{
 		$debug = debug::getinstance(true);
-		$before = get_declared_classes();
-		require($file);
-		$after = get_declared_classes();
-		$newclasses = array_diff($after, $before);
-		foreach ($newclasses as $classname)
-		{
-			if ($classname == 'tester' || !is_subclass_of($classname, 'tester')) continue;
-			tester::testclass($classname);
-		}
-	}
-
-	public static function testclass($classname)
-		// test all test classes found in the given classname.  the class
-		// must have already been declared, ie the file it is declared in
-		// must already have been parsed.
-	{
-		$debug = debug::getinstance(true);
-		if ($classname == 'tester' || !is_subclass_of($classname, 'tester')) return 0;
+		if (!is_subclass_of($classname, 'tester') || in_array($classname, self::$donottest)) return;
 		$methods = get_class_methods($classname);
 		$hastests = false;
 		foreach ($methods as $method) if (preg_match('#^test#i', $method))
 		{
 			$hastests = true;
-			$obj = new $classname();
-			$obj->$method();
-			if (!$obj->passed)
-				self::$errors[$classname . '::' . $method] = $obj->failmsg;
-			self::$asserts_total += $obj->asserts;
-			unset($obj);
+			try
+			{
+				$obj = new $classname();
+				$obj->$method();
+				if (!$obj->passed) self::$errors++;
+				self::$asserts_total += $obj->asserts;
+				unset($obj);
+			}
+			catch (Exception $e)
+			{
+				$debug->debug_errorhandler($e);
+			}
 			self::$tests++;
 		}
 		if ($hastests) self::$classes++;
+	}
+
+	public static function report()
+	// displays a report of tests passed/failed
+	{
+		$message = '';
+		$s = self::$tests != 1 ? 's' : '';
+		$es = self::$classes != 1 ? 'es' : '';
+		if (!self::$errors)
+		{
+			$message = "SUCCESS: " . self::$tests . " test$s passed in ".
+				self::$classes . " class$es";
+		}
+		else
+		{
+			$message = "FAILURE --- " . self::$errors . '/' .
+				self::$tests . " test$s FAILED in " . self::$classes .
+				" class$es";
+		}
+		$debug = debug::getinstance();
+		$debug->halt($message, self::$errors ? 1 : 0);
+	}
+
+	public static function includedir($dir, $recurse = true)
+		// include all php files in given directory.
+		// this will cause all code in all the php files to be executed, so
+		// only execute in a trusted directory which consists only of test
+		// classes.  will recurse into subdirectories by default.
+	{
+		$dir = rtrim($dir, '\\/') . '/';
+		$hnd = opendir($dir);
+		while (($filename = readdir($hnd)) !== false)
+			if ($filename != '.' && $filename != '..')
+		{
+			if (is_dir($dir . $filename))
+			{
+				if ($recurse) tester::includedir($dir . $filename, true);
+			}
+			elseif (preg_match('#.\.php[56]?$#i', $filename))
+				require_once($file);
+		}
 	}
 
 	public function assert($val, $op='==', $rval=true)
@@ -120,12 +160,21 @@ class tester
 		if (!$p)
 		{
 			$this->passed = false;
-			$this->failmsg = "Assertion failed: " . var_export($val, true) . " is not $op "
-				. var_export($rval, true);
+			$inmsg = '';
+			$traces = debug_backtrace();
+			if (count($traces) >= 2)
+			{
+				list($trace0, $trace1) = $traces;
+				$inmsg = " in $trace1[function]() from $trace0[file] line $trace0[line]";
+			}
+			$debug = debug::getinstance();
+			$debug->notice('tester', 'Assertion failed', var_export($val, true) . " is not $op " . var_export($rval,  true) . $inmsg, true);
 			return false;
 		}
 		return true;
 	}
 }
+
+tester::register();
 
 ?>
