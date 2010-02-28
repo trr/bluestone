@@ -175,18 +175,17 @@ class debug
 			$c = $errorlevel ? '#c00' : '#080';
 			echo $htmlformat 
 				? "<p style=\"background:$c;color:#fff;font:bold large sans-serif;padding:12px\">"
-				: str_repeat("=============",6) . "\n";
+				: str_repeat("======",13) . "\n";
 			echo $htmlformat 
 				? htmlspecialchars($message) 
 				: wordwrap($message, 78, "\n", true) . "\n";
 			echo $htmlformat
 				? "</p>"
-				: str_repeat("=============",6) . "\n";
+				: str_repeat("======",13) . "\n";
 		}
 
 		echo $htmlformat ? $this->getnoticeshtml(true) : $this->getnoticestext(true);
-		if ($htmlformat)
-			echo '<p style="font:small sans-serif"><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
+			echo '<p style="font:small sans-serif"><em>Notice: These notices are shown because your site is in DEBUG mode.</em></p>';
 		exit((int)$errorlevel);
 	}
 	
@@ -241,7 +240,7 @@ class debug
 		}
 		else
 		{
-			// we need to double check if this error needs reporting
+			// the following also allows suppressing errors with @ sign
 			if (!($err & error_reporting())) return;
 
 			$errortypes = array(
@@ -251,7 +250,7 @@ class debug
 				E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
 				E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
 				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
-				);					 
+				);
 			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
 			$backtrace = debug_backtrace();
 			foreach ($backtrace as $id => $row)
@@ -260,7 +259,7 @@ class debug
 		}
 		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr", true);
 		$this->logtrace($backtrace);
-		foreach ($this->tasks as $taskid => $task)
+		foreach ($this->tasks as $taskid => $task) // set incomplete tasks as errors
 			$this->notices[$task['noticeid']]['errlog'] = true;
 		$this->halt("$errortype in $errfile line $errline: $errstr");
 	}
@@ -272,21 +271,12 @@ class debug
 			$func = isset($row['function']) ? $row['function'] : null;
 			if (!empty($row['class'])) $func = $row['class'] . '::' . $func;
 			$args = array();
-			if (isset($row['args']) && is_array($row['args'])) foreach ($row['args'] as $arg)
-			{
-				$argtext = var_export($arg, true);
-				if (strlen($argtext) > 32)
-				{
-					$argtext = gettype($arg);
-					if (is_string($arg)) $argtext .= '[' . strlen($arg) . ']';
-					elseif (is_array($arg)) $argtext .= '[' . count($arg) . ']';
-					elseif (is_object($arg)) $argtext = get_class($arg);
-				}
-				$args[] = $argtext;
-			}
+			if (isset($row['args']) && is_array($row['args']))
+				foreach ($row['args'] as $arg)
+					$args[] = is_object($arg) ? get_class($arg) : gettype($arg);
+			$args = implode(', ', $args);
 			$file = isset($row['file']) ? $row['file'] : '(unknown file)';
 			$line = isset($row['line']) ? $row['line'] : '(unknown line)';
-			$args = implode(', ', $args);
 			$this->notice('debug', 'Backtrace', 
 				"$func($args) in $file line $line", true
 				);

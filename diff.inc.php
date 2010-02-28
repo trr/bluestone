@@ -334,4 +334,43 @@ class diff
 	}
 }
 
+/*
+set_time_limit(12);
+
+$a = str_repeat("The quick brown fox jumps over the lazy dog", 10);
+$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 10);
+$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 10);
+echo (strlen($a) + strlen($b)) . "ready\n";
+
+//file_put_contents('outputa.txt', $a);
+//file_put_contents('outputb.txt', $b);
+
+list($sec, $usec) = explode(' ', microtime());
+
+set_time_limit(12);
+
+function binhash($d){return hash('sha1',$d,1);}
+
+for ($i = 0; $i < 100; $i++)
+{
+	//$result = uhash(uniqid('c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys', true)
+	//	.'ace'.serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));
+	// $result = randhash();
+	
+	$el1 = diff::dodiff($a, $b, true);
+	$el2 = diff::dodiff($a, $c, true);
+	$result = diff::mergeleft($el1, $el2);
+	$result = diff::assemblemerge($result, $a, $b, $c);
+	//$result = diff::dodiff_file('outputa.txt', 'outputb.txt');
+}
+
+list($xsec, $xusec) = explode(' ', microtime());
+
+$elapsed = ($xsec - $sec) + ($xusec - $usec);
+echo count($result);
+echo "\n$elapsed\n";
+echo substr(var_export($result, true), 0, 6000);
+exit;
+ */
+
 ?>
