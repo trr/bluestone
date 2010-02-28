@@ -31,6 +31,8 @@
 // in this case grouping these functions into a class is just to reduce the
 // global footprint (could also have been done with namespaces)
 
+define('DIFF_SEGMENTLEN', 2097152);
+
 class diff
 {
 	public static function strgetsamelen($a, $b, $aoff = 0, $boff = 0, $utf8 = false)

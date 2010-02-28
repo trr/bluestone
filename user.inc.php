@@ -126,7 +126,7 @@ class user
 					// or let it slide if it was valid <30 seconds ago
 					($userdetails['pl_newID'] && $userdetails['pl_time'] > (TIMENOW-30)))
 				{
-					$this->debug->notice('user', 'Valid persistent cookie found');
+					$this->debug->notice('user', 'Checking cookie', 'Valid persistent cookie found');
 					$this->userdetails = $userdetails;
 					if ($userdetails['pl_valid']) // unless we were let in under the '30 second rule'
 						$this->processlogin($userdetails, true, $userdetails['pl_seqID']);
@@ -170,7 +170,7 @@ class user
 	// what to do when we see something suspicious like and invalid hash re-used
 	// or session var crossing IP and user-agent boundaries
 	{
-		$this->debug->notice('user', 'Suspicious credentials; killing session');
+		$this->debug->notice('user', 'Suspicious credentials', 'Killing session');
 		$newloginid = (int)$newloginid; $userid = (int)$userid;
 		$this->db->query("DELETE FROM {$this->prefix}session
 			WHERE session_userID=$userid");
@@ -207,7 +207,7 @@ class user
 				WHERE session_hash='{$this->sessionhash}'");
 		}
 		
-		$this->debug->notice('user', 'Creating new session');
+		$this->debug->notice('user', 'Creating session');
 		$this->sessionhash = user::randhash('sessionhash');
 			
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');

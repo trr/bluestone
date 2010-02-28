@@ -50,11 +50,12 @@ class debug
 		$this->useerrorhandler($useerrorhandler);
   }
 
-	public function notice($module, $notice, $data = null)
+	public function notice($module, $notice, $data = null, $errlog = false)
 	// module is name of module - should be the classname where the error occurred
 	// or 'global' if in global scope
 	// notice is name of notice
-	// description is a name for this notice
+	// data is further information about this notice such as the arguments
+	// errlog should be set to true to show this in an error report
 	{
 		if ($this->debugmode)
 		{
@@ -69,7 +70,8 @@ class debug
 			'notice' => $notice,
 			'data' => (strlen($data) > (1024*512)) ? (substr($data, 0, (1024*512) - 15) . '... (truncated)') : $data,
 			'elapsed' => $elapsed,
-			'taskelapsed' => null
+			'taskelapsed' => null,
+			'errlog' => $errlog,
 		);
 
 		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
@@ -148,8 +150,12 @@ class debug
 		$this->error_callback = $callback;
 	}
 	
-	private function halt($message = '')
+	public function halt($message = '', $errorlevel = 1, $htmlformat = null)
+	// errorlevel 0 = success, >0 = error
+	// htmlformat true = use html, false = use text, null = autodetect
 	{
+		if ($htmlformat === null)
+			$htmlformat = !empty($_SERVER['REQUEST_URI']);
 		if (!headers_sent() && empty($this->error_callback)) header('HTTP/1.1 500 Internal Server Error');
 		while (ob_get_length() !== false) ob_end_clean();
 			
@@ -162,21 +168,36 @@ class debug
 			exit;
 		}
 
-		echo '<div style="background:$fff;#000;font:small sans-serif"><h1>Error Notice</h1>';
-		if ($message != '') echo '<p>' . htmlspecialchars($message) . '</p>';
-		echo '<p><em>Security notice: Do not enable DEBUG mode on a site visible to the public.</em></p>';
+		if ($htmlformat) echo '<div style="background:$fff;color:#000">';
 
-		echo $this->getnoticeshtml();
-		exit;
+		if ($message != '')
+		{
+			$c = $errorlevel ? '#c00' : '#080';
+			echo $htmlformat 
+				? "<p style=\"background:$c;color:#fff;font:bold large sans-serif;padding:12px\">"
+				: str_repeat("======",13) . "\n";
+			echo $htmlformat 
+				? htmlspecialchars($message) 
+				: wordwrap($message, 78, "\n", true) . "\n";
+			echo $htmlformat
+				? "</p>"
+				: str_repeat("======",13) . "\n";
+		}
+
+		echo $htmlformat ? $this->getnoticeshtml(true) : $this->getnoticestext(true);
+		if ($htmlformat)
+			echo '<p style="font:small sans-serif"><em>Notice: These notices are shown because your site is in DEBUG mode.</em></p>';
+		exit((int)$errorlevel);
 	}
 	
-	public function getnoticeshtml()
+	public function getnoticeshtml($onlyerrors = false)
 	{
 		if (!count($this->notices)) return '';
-		$output = '<table border="1" cellspacing="0" cellpadding="4" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
+		$output = '<table style="font:small sans-serif" border="1" cellspacing="0" cellpadding="3" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
 		
 		foreach ($this->notices as $notice)
 		{
+			if ($onlyerrors && !$notice['errlog']) continue;
 			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 2) : '&nbsp;';
 			$data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
 			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 2) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
@@ -187,16 +208,18 @@ class debug
 	  return $output;
 	}
 	
-	public function getnoticestext()
+	public function getnoticestext($onlyerrors = false)
 	{
 	  if (empty($this->notices)) return '';
-	  $output =  'Time (ms) : Task (ms) : Module           : Notice Type                      : Data' . "\r\n";
-    $output .= '..........:...........:..................:..................................:.....' . "\r\n";
-    
+		$output = '';
     foreach ($this->notices as $notice)
 		{
-			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) : '         ';
-			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 9, ' ', STR_PAD_LEFT) . ' : ' . $taskelapsed . ' : ' . str_pad(substr($notice['module'], 0, 16), 16) . ' : ' . str_pad($notice['notice'], 32) . ' : ' . trim(strtr($notice['data'], "\r\n\t", '   ')) . "\r\n";
+			if ($onlyerrors && !$notice['errlog']) continue;
+			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) : '       ';
+			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 8, ' ', STR_PAD_LEFT) . ' ' . $taskelapsed . ' ';
+			$msg = '[' . $notice['module'] . '] ' . $notice['notice'];
+			if ($notice['data'] != '') $msg .= ': ' . $notice['data'];
+			$output .= wordwrap(str_replace("\n", "\n                 ", $msg), 61, "\n                 ", true) . "\n";
 		}		
 		
 	  return $output;
@@ -218,7 +241,7 @@ class debug
 		}
 		else
 		{
-			// we need to double check if this error needs reporting
+			// the following also allows suppressing errors with @ sign
 			if (!($err & error_reporting())) return;
 
 			$errortypes = array(
@@ -228,15 +251,17 @@ class debug
 				E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
 				E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
 				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
-				);					 
+				);
 			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
 			$backtrace = debug_backtrace();
 			foreach ($backtrace as $id => $row)
 				if (isset($row['class']) && $row['class'] == 'debug')
 					unset($backtrace[$id]);
 		}
-		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr");
+		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr", true);
 		$this->logtrace($backtrace);
+		foreach ($this->tasks as $taskid => $task) // set incomplete tasks as errors
+			$this->notices[$task['noticeid']]['errlog'] = true;
 		$this->halt("$errortype in $errfile line $errline: $errstr");
 	}
 
@@ -247,23 +272,14 @@ class debug
 			$func = isset($row['function']) ? $row['function'] : null;
 			if (!empty($row['class'])) $func = $row['class'] . '::' . $func;
 			$args = array();
-			if (isset($row['args']) && is_array($row['args'])) foreach ($row['args'] as $arg)
-			{
-				$argtext = var_export($arg, true);
-				if (strlen($argtext) > 32)
-				{
-					$argtext = gettype($arg);
-					if (is_string($arg)) $argtext .= '[' . strlen($arg) . ']';
-					elseif (is_array($arg)) $argtext .= '[' . count($arg) . ']';
-					elseif (is_object($arg)) $argtext = get_class($arg);
-				}
-				$args[] = $argtext;
-			}
+			if (isset($row['args']) && is_array($row['args']))
+				foreach ($row['args'] as $arg)
+					$args[] = is_object($arg) ? get_class($arg) : gettype($arg);
+			$args = implode(', ', $args);
 			$file = isset($row['file']) ? $row['file'] : '(unknown file)';
 			$line = isset($row['line']) ? $row['line'] : '(unknown line)';
-			$args = implode(', ', $args);
 			$this->notice('debug', 'Backtrace', 
-				"$func($args) in $row[file] line $row[line]"
+				"$func($args) in $file line $line", true
 				);
 		}
 	}
