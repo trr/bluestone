@@ -76,47 +76,34 @@ class difftester extends tester
 	{
 		$result = diff::dodiff_file(__FILE__, __FILE__);
 		$this->assert(count($result), '==', 0);
-		
+
+		$result = diff::dodiff_file(__FILE__,'../diff.inc.php');
+		$this->assert(count($result), '>', 0);
+	}
+
+	function test_reverse()
+	{
+		$result = diff::reverse(array(
+			array(20,3,20,3),
+			array(31,3,31,12),
+			array(40,4,49,4)
+			));
+		$this->assert($result, '==', array(
+			array(20,3,20,3),
+			array(31,12,31,3),
+			array(49,4,40,4)
+			));
+
+		// test re-ordering
+		$result = diff::reverse(array(
+			array(20,3,40,3),
+			array(31,3,31,12),
+			));
+		$this->assert($result, '==', array(
+			array(31,12,31,3),
+			array(40,3,20,3),
+			));
 	}
 }
-
-/*
-set_time_limit(12);
-
-$a = str_repeat("The quick brown fox jumps over the lazy dog", 10);
-$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 10);
-$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 10);
-echo (strlen($a) + strlen($b)) . "ready\n";
-
-//file_put_contents('outputa.txt', $a);
-//file_put_contents('outputb.txt', $b);
-
-list($sec, $usec) = explode(' ', microtime());
-
-set_time_limit(12);
-
-function binhash($d){return hash('sha1',$d,1);}
-
-for ($i = 0; $i < 100; $i++)
-{
-	//$result = uhash(uniqid('c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys', true)
-	//	.'ace'.serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));
-	// $result = randhash();
-	
-	$el1 = diff::dodiff($a, $b, true);
-	$el2 = diff::dodiff($a, $c, true);
-	$result = diff::mergeleft($el1, $el2);
-	$result = diff::assemblemerge($result, $a, $b, $c);
-	//$result = diff::dodiff_file('outputa.txt', 'outputb.txt');
-}
-
-list($xsec, $xusec) = explode(' ', microtime());
-
-$elapsed = ($xsec - $sec) + ($xusec - $usec);
-echo count($result);
-echo "\n$elapsed\n";
-echo substr(var_export($result, true), 0, 6000);
-exit;
- */
 
 ?>
