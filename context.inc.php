@@ -308,7 +308,7 @@ class context
 			if (DEBUG && preg_match('!text/html;|application/xhtml(?:\+xml)?;!', $this->contenttype))
 			{
 				$debug = &debug::getinstance();
-				$debug->notice('context', 'dooutput()');
+				$debug->notice('context', 'Sending output');
 				$debugmessages = $debug->getnoticestext();
 				$debugmessages = str_replace('--', '==', $debugmessages);
 				$data .= "\n<!-- Debug messages:\n\n$debugmessages\n-->";

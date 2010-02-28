@@ -123,14 +123,12 @@ class db_connection
 		if (DEBUG)
 		{
 			$debug = &debug::getinstance();
-			$taskid = $debug->starttask('db_connection', 'query()', $query);
+			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 		}
 		$this->result = mysql_query($query, $this->connection);
-		if (DEBUG)
-			$debug->endtask($taskid);
-		if ($this->result) return $this->result;
-		// or failed
-		return $this->set_error('Database query failed; no result was returned');
+		if (!$this->result) $this->set_error('Database query failed; no result was returned');
+		if (DEBUG) $debug->endtask($taskid);
+		return $this->result ? $this->result : false; 
 	}
 	
 	public function query_single($query)
@@ -146,30 +144,27 @@ class db_connection
 		if (DEBUG)
 		{
 			$debug = &debug::getinstance();
-			$taskid = $debug->starttask('db_connection', 'query_single()', $query);
+			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 		}
 		$tempresult = mysql_query($query, $this->connection);
+		if ($success = is_resource($tempresult))
+		{
+			$arr = mysql_fetch_array($tempresult);
+			mysql_free_result($tempresult);
+		}
+		else $this->set_error('Database query failed; no result was returned');
 
 		if (DEBUG) $debug->endtask($taskid);
 
-		if (!is_resource($tempresult))
-			return $this->set_error('Database query failed; no result was returned');
-
-		$array = mysql_fetch_array($tempresult);
-		mysql_free_result($tempresult);
-		if ($array) return $array;
-
-		// return false if no rows returned
-		return false;
+		return $success ? ($arr ? $arr : false) : false;
 	}
 	
-	public function fetch_array($result = '')
+	public function fetch_array($result = null)
 	{
-		if (!is_resource($result)) $result = $this->result;
+		if ($result === null) $result = $this->result;
 		if (!is_resource($result)) return false;
 
-		$array = mysql_fetch_array($result);
-		if ($array)	return $array;
+		if ($array = mysql_fetch_array($result)) return $array;
 		return false;
 	}
 	
@@ -184,16 +179,10 @@ class db_connection
 	
 	public function free_result($result = null)
 	{
+		if ($result === null) $result = $this->result;
 		if (is_resource($result))
 		{
 			mysql_free_result($result);
-			return true;
-		}
-		// if result is not specified, assume we mean the currently stored result
-		if (is_resource($this->result))
-		{
-			mysql_free_result($this->result);
-			$this->result = NULL;
 			return true;
 		}
 		return $this->set_error('Could not free database result; no result specified');
@@ -232,10 +221,20 @@ class db_connection
 		return (float)mysql_get_server_info($this->connection);
 	}
 	
+	private function describe_query($query)
+	{
+		$succ = preg_match('/(?!<#[^\n]*)select|insert|update|delete|replace|alter|create/i', $query, $matches);
+		return $succ ? strtoupper($matches[0]) : null;
+	}
+
 	protected function set_error($errorname, $throw = true)
 	{
 		$this->error = $errorname;
-		if ($mysqlerror = mysql_error()) $errorname .= "; MySQL Error: " . $mysqlerror;
+		if ($mysqlerror = mysql_error())
+		{
+			$succ = preg_match('/Table \'[^\'\s\\\\]+\' doesn\'t exist|(error in your sql )?syntax|unknown column|duplicate( (index|key|entry))?/i', $mysqlerror, $matches);
+			if ($succ) $errorname .= '; Error type: ' . $matches[0];
+		}
 		if ($throw)	trigger_error($errorname, E_USER_ERROR);
 		return false;
 	}
