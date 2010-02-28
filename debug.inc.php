@@ -185,6 +185,7 @@ class debug
 		}
 
 		echo $htmlformat ? $this->getnoticeshtml(true) : $this->getnoticestext(true);
+		if ($htmlformat)
 			echo '<p style="font:small sans-serif"><em>Notice: These notices are shown because your site is in DEBUG mode.</em></p>';
 		exit((int)$errorlevel);
 	}
