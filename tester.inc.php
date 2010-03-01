@@ -160,15 +160,16 @@ class tester
 		if (!$p)
 		{
 			$this->passed = false;
-			$inmsg = '';
+			$inmsg = $func = '';
 			$traces = debug_backtrace();
 			if (count($traces) >= 2)
 			{
 				list($trace0, $trace1) = $traces;
-				$inmsg = " in test $trace1[function]() in $trace0[file] line $trace0[line]";
+				$inmsg = " in $trace0[file] line $trace0[line]";
+				$func = "$trace1[function]: ";
 			}
 			$debug = debug::getinstance();
-			$debug->notice('tester', 'Assertion failed', var_export($val, true) . " is not $op " . var_export($rval,  true) . $inmsg, true);
+			$debug->notice('tester', 'Test failed', $func . var_export($val, true) . " not $op " . var_export($rval,  true) . $inmsg, true);
 			return false;
 		}
 		return true;
