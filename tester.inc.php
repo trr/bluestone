@@ -165,7 +165,7 @@ class tester
 			if (count($traces) >= 2)
 			{
 				list($trace0, $trace1) = $traces;
-				$inmsg = " in $trace1[function]() from $trace0[file] line $trace0[line]";
+				$inmsg = " from $trace1[function]() in $trace0[file] line $trace0[line]";
 			}
 			$debug = debug::getinstance();
 			$debug->notice('tester', 'Assertion failed', var_export($val, true) . " is not $op " . var_export($rval,  true) . $inmsg, true);
