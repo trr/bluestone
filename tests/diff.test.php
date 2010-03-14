@@ -21,8 +21,8 @@
 	<http://www.gnu.org/licenses/>.
 */
 
-require_once('../tester.inc.php');
-require_once('../diff.inc.php');
+require_once(dirname(__FILE__) . '/../tester.inc.php');
+require_once(dirname(__FILE__) . '/../diff.inc.php');
 
 class difftester extends tester
 {
@@ -77,7 +77,7 @@ class difftester extends tester
 		$result = diff::dodiff_file(__FILE__, __FILE__);
 		$this->assert(count($result), '==', 0);
 
-		$result = diff::dodiff_file(__FILE__,'../diff.inc.php');
+		$result = diff::dodiff_file(__FILE__,dirname(__FILE__).'/../diff.inc.php');
 		$this->assert(count($result), '>', 0);
 	}
 

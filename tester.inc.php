@@ -134,7 +134,7 @@ class tester
 				if ($recurse) tester::includedir($dir . $filename, true);
 			}
 			elseif (preg_match('#.\.php[56]?$#i', $filename))
-				require_once($file);
+				require_once($dir . $filename);
 		}
 	}
 

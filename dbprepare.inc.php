@@ -516,7 +516,7 @@ class dbprepare
 					if (!empty($valcmp[4]) && strtolower($valcmp[4]) != strtolower($fieldcollation))
 					{
 						if ($suppress)
-							$this->seterror("Need to change collation from $valcmp[4] to $val[4] in column $fieldname in table {$this->prefix}{$table}", 'suppressed');
+							$this->seterror("Need to change collation from $valcmp[4] to $fieldcollation in column $fieldname in table {$this->prefix}{$table}", 'suppressed');
 						else
 						{
 							$this->seterror("Table {$this->prefix}{$table}: Column $fieldname: Collation changed from $valcmp[4] to $fieldcollation", 'changed');
