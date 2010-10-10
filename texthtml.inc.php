@@ -49,7 +49,7 @@ class texthtml
 		
 		$result = preg_match_all('/
 			\s*+<\/?+(\w++)[^>"]*(?:"[^"]*"[^>"]*+)*+>\s*
-			|\x20\s+|\t\s*|\n\s*|\r\s*|\r\s*
+			|\x20\s+|\t\s*|\n\s*|\r\s*
 			|<!(?:--.*?--|[^-][^>]*)>\s*
 			/xsS',
 			$html, $matches, PREG_SET_ORDER|PREG_OFFSET_CAPTURE);
@@ -90,6 +90,7 @@ class texthtml
 		$this->editlist = $editlist;
 		return $output . substr($html, $apos) . '</p>';
 	}
+
 	
 	public function simpletotext($simple)
 	// converts the simple formatting from htmltosimple to plain text
