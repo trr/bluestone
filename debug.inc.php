@@ -124,7 +124,10 @@ class debug
 		if ($useerrorhandler)
 		{
 			// in debug mode we handle all errors
-			if ($this->debugmode) error_reporting(-1);
+			if ($this->debugmode) {
+				error_reporting(-1);
+				ini_set('display_errors', '1');
+			}
 			set_error_handler(array(&$this, 'debug_errorhandler'));
 			set_exception_handler(array(&$this, 'debug_errorhandler'));
 		}
