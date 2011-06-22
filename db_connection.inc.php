@@ -37,7 +37,6 @@ class db_connection
 		$connection,
 		$statement,
 		$num_queries,
-		$warnunsafe,
 		$prefix,
 		$error;
 
@@ -104,12 +103,6 @@ class db_connection
 		return $this->connection ? true : false;
 	}
 
-	public function set_warnunsafe($warnunsafe) {
-	// setting this to true throw an exception when queries more susceptible to
-	// SQL injections are not parameterised
-		$this->warnunsafe = $warnunsafe;
-	}
-	
 	public function query($query /*, param, param ... */)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	{
@@ -130,16 +123,19 @@ class db_connection
 
 		if (func_num_args() > 1) {
 			$this->statement = $this->connection->prepare($query);
-			$params = array_slice(func_get_args(), 1);
+			$params = is_array(func_get_arg(1)) ? func_get_arg(1) :
+				array_slice(func_get_args(), 1);
 			foreach ($params as $id => $param) {
 				if (is_bool($param)) $params[$id] = $param ? 1 : 0;
 			}
 			$this->statement->execute($params);
 		}
 		else {
+			/*
 			if ($this->warnunsafe && preg_match('/["\';]|(?!<[\w\d\.])\d|\bnull\b/i', $query)) {
 				throw new Exception("Please use query parameters");
 			}
+			 */
 			$this->statement = $this->connection->query($query);
 		}
 
