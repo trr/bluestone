@@ -1,5 +1,28 @@
 
-INSTALLATION
+Bluestone PHP Library
+=====================
+
+A general purpose PHP library for web applications
+
+The Bluestone project includes classes for handling:
+
+- simple debugging, including backtraces
+- MySQL database connections
+- identifying file types based on content
+- creating and altering database tables to match a scheme
+- handling lots of features of HTTP including resuming and gzip encoding
+- diff (comparing two files)
+- validating, filtering and converting UTF-8 encoded strings
+- simple conversion between text and HTML (ie, paragraph tags and not much more)
+
+Compatible with PHP 5.2.4 and above. Some functionality in Bluestone may also be
+provided by PHP extensions currently available, but is included in Bluestone for
+maximum portability. For example, basic UTF-8 support such as validating and
+filtering invalid characters, case conversion and word separation without the need
+for users to install the mbstring extension.
+
+Installation and use
+====================
 
 Bluestone can be used in your PHP application by placing its files
 into any directory on the server.
@@ -10,35 +33,16 @@ For example,
 
 define(BLUESTONE_DIR, '/path/to/bluestone/');
 
-DOCUMENTATION
+License
+=======
 
-Unfortunately Bluestone has no other documentation at the moment,
-other than to read and understand its source code.
+Bluestone
+Copyright (c) 2011, Thomas Rutter
+All rights reserved.
 
-SUPPORT
+The Bluestone library is available for use under the Modified BSD License included
+in this distribution.
 
-Support is unavailable for Bluestone at this time.  Bugs or questions may
-be sent via the Launchpad project site at https://launchpad.net/bluestone
-though no guarantee can be made as to dealing with them promptly.
-
-COPYING
-
-Bluestone is Copyright (c) 2004, 2009 Thomas Rutter
-
-Bluestone is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as 
-published by the Free Software Foundation, either version 3 of
-the License, or (at your option) any later version.
-
-Bluestone is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with Bluestone.  If not, see	
-<http://www.gnu.org/licenses/>.
-
-THE GNU LESSER GENERAL PUBLIC LICENSE, AND THE GNU GENERAL
-PUBLIC LICENSE ON WHICH IT EXPANDS, ARE INCLUDED WITHIN THIS
-PACKAGE AS COPYING.LGPL AND COPYING.GPL.
+The Modified BSD License is an open source free software license compatible
+with the GNU General Public License.  Bluestone may be redistributed in your own
+software, commercial or open, providing that its few license terms are met.
