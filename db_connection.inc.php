@@ -35,7 +35,7 @@ class db_connection
 {
 	private 
 		$connection,
-		$result,
+		$statement,
 		$num_queries,
 		$prefix,
 		$error;
@@ -71,10 +71,13 @@ class db_connection
 			$dsn,
 			isset($dbsettings['user']) ? $dbsettings['user'] : null,
 			isset($dbsettings['pass']) ? $dbsettings['pass'] : null);
-		}
 
 		if (!$this->connection)
 			throw new Exception('Failed to connect to database');
+		else {
+			$this->connection->setAttribute(PDO::ATTR_ERRMODE,
+				PDO::ERRMODE_EXCEPTION);
+		}
 	}
 	
 	public function close()
@@ -87,6 +90,10 @@ class db_connection
 		// todo free result resources? if (is_resource($this->result)) @mysql_free_result($this->result);
 
 		$this->connection = null;
+		if ($this->statement) {
+			$this->statement->closeCursor();
+			$this->statement = null;
+		}
 		return true;
 	}
 	
@@ -96,105 +103,120 @@ class db_connection
 		return $this->connection ? true : false;
 	}
 	
+	/*
 	public function escape($string)
 	// escaping in this way, instead of addslashes(), is important if using 
 	// multi-byte charsets (other than utf-8 which is safe)
 	{ 
 		return $this->connection->real_escape_string($string);
 	}
+	*/
 	
-	public function query($query)
+	public function query($query /*, param, param ... */)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	{
 		if (!$this->connection)
 			throw new Exception('Database query failed; database connection not open');
 
 		$this->num_queries++;
-		if (DEBUG)
-		{
+		// debugging
+		if (DEBUG) {
 			$debug = &debug::getinstance();
 			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 		}
-		$argcount = func_num_args();
-		if ($argcount > 1) {
-			$stmt = $this->connection->prepare($query);
-			$format = '';
-			$params = array_slice(func_get_args(), 1);
-			foreach ($params as $id => $param) {
-				$format .= is_string($param) ? 's' :
-					(is_int($param) ? 'i' :
-					(is_float($param) ? 'd' :
-					(is_bool($param) ? 'i' :
-					's')));
-			}
-			$stmt->bind_param($format, $params);
-			
 
+		if ($this->statement) {
+			$this->statement->closeCursor();
+			$this->statement = null;
 		}
 
+		if (func_num_args() > 1) {
+			$this->statement = $this->connection->prepare($query);
+			$params = array_slice(func_get_args(), 1);
+			foreach ($params as $id => $param) {
+				if (is_bool($param)) $params[$id] = $param ? 1 : 0;
+			}
+			$this->statement->execute($params);
+		}
+		else {
+			$this->statement = $this->connection->query($query);
+		}
 
+		if (!$this->statement) {
+			throw new Exception("Database query failed");
+		}
 
-		$this->result = mysql_query($query, $this->connection);
-		if (!$this->result) $this->set_error('Database query failed; no result was returned');
 		if (DEBUG) $debug->endtask($taskid);
-		return $this->result ? $this->result : false; 
+
+		return $this->statement ? true : false;
 	}
 	
-	public function query_single($query)
+	public function query_single($query /*, param, param ... */)
 	// tries a query.	fetches the first row and returns it as an array.	
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
 	{
 		if (!$this->connection)
-			return $this->set_error('Database query failed; database connection not open');
+			throw new Exception('Database query failed; database connection not open');
 		
-		// does not remove any pre-existing queries
 		$this->num_queries++;
 		if (DEBUG)
 		{
 			$debug = &debug::getinstance();
 			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 		}
-		$tempresult = mysql_query($query, $this->connection);
-		if ($success = is_resource($tempresult))
-		{
-			$arr = mysql_fetch_array($tempresult);
-			mysql_free_result($tempresult);
+
+		// call query() with same arguments
+		$result = call_user_func_array(array($this, "query"), func_get_args());
+
+		if ($result) {
+			$arr = $this->statement->fetch();
+			$this->statement->closeCursor();
+			$this->statement = null;
 		}
-		else $this->set_error('Database query failed; no result was returned');
+		else {
+			throw new Exception('Database query failed');
+		}
 
 		if (DEBUG) $debug->endtask($taskid);
 
-		return $success ? ($arr ? $arr : false) : false;
+		return $result ? ($arr ? $arr : false) : false;
 	}
 	
-	public function fetch_array($result = null)
+	public function fetch_array()
 	{
-		if ($result === null) $result = $this->result;
-		if (!is_resource($result)) return false;
+		//if ($result === null) $result = $this->result;
+		if (!$this->statement) {
+			throw new Exception('No database statement open; cannot fetch');
+			return;
+		}
 
-		if ($array = mysql_fetch_array($result)) return $array;
+		if ($arr = $this->statement->fetch()) return $arr;
+
 		return false;
 	}
 	
 	public function affected_rows()
 	// return the number of rows affected by the last query like DELETE, UPDATE...
 	{
-		if (!$this->connection)
-			return $this->set_error('Database query failed; database connection not open');
-		
-		return mysql_affected_rows($this->connection);
+		if (!$this->statement) {
+			throw new Exception('No database statement open; cannot rowcount');
+			return;
+		}
+
+		return $this->statement->rowCount();
 	}
 	
-	public function free_result($result = null)
+	public function free_result()
 	{
-		if ($result === null) $result = $this->result;
-		if (is_resource($result))
-		{
-			mysql_free_result($result);
-			return true;
+		if (!$this->statement) {
+			throw new Exception('No database statement open; cannot free result');
+			return;
 		}
-		return $this->set_error('Could not free database result; no result specified');
+
+		$this->statement->closeCursor();
+		$this->statement = null;
+		return true;
 	}
 	
 	public function set_prefix($prefix)
@@ -207,6 +229,7 @@ class db_connection
 		return $this->prefix;
 	}
 	
+	/*
 	public function num_rows()
 	{
 		if (!$this->connection)
@@ -214,20 +237,22 @@ class db_connection
 
 		return mysql_num_rows($this->result);
 	}
+	*/
 	
 	public function get_error()
 	{
-		return $this->error;
+		$info = $this->connection->errorInfo();
+		return $info ? $info[2] : null;
 	}
 	
 	public function get_dbtype()
 	{
-		return 'mysql';
+		return $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
 	}
 	
 	public function get_dbversion()
 	{
-		return (float)mysql_get_server_info($this->connection);
+		return $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
 	}
 	
 	private function describe_query($query)
@@ -236,6 +261,7 @@ class db_connection
 		return $succ ? strtoupper($matches[0]) : null;
 	}
 
+	/*
 	protected function set_error($errorname, $throw = true)
 	{
 		$this->error = $errorname;
@@ -247,6 +273,7 @@ class db_connection
 		if ($throw)	trigger_error($errorname, E_USER_ERROR);
 		return false;
 	}
+	*/
 	
 }
 
