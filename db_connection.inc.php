@@ -37,6 +37,7 @@ class db_connection
 		$connection,
 		$statement,
 		$num_queries,
+		$warnunsafe,
 		$prefix,
 		$error;
 
@@ -102,15 +103,12 @@ class db_connection
 	{
 		return $this->connection ? true : false;
 	}
-	
-	/*
-	public function escape($string)
-	// escaping in this way, instead of addslashes(), is important if using 
-	// multi-byte charsets (other than utf-8 which is safe)
-	{ 
-		return $this->connection->real_escape_string($string);
+
+	public function set_warnunsafe($warnunsafe) {
+	// setting this to true throw an exception when queries more susceptible to
+	// SQL injections are not parameterised
+		$this->warnunsafe = $warnunsafe;
 	}
-	*/
 	
 	public function query($query /*, param, param ... */)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
@@ -139,6 +137,9 @@ class db_connection
 			$this->statement->execute($params);
 		}
 		else {
+			if ($this->warnunsafe && preg_match('/["\';]|(?!<[\w\d\.])\d|\bnull\b/i', $query)) {
+				throw new Exception("Please use query parameters");
+			}
 			$this->statement = $this->connection->query($query);
 		}
 
