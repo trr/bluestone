@@ -77,9 +77,9 @@ class user
 					LEFT JOIN {$this->prefix}user AS u ON
 						user_ID=session_userID
 				WHERE
-					session_hash='$sessionhash'
-					AND session_lastvisited>=$expire
-				");	
+					session_hash=?
+					AND session_lastvisited>=?
+				", $sessionhash, $expire);	
 				
 			if (!empty($userdetails)
 				&& $this->sourcecheck($userdetails['ps_ip'], $userdetails['ps_ua']))
@@ -91,12 +91,12 @@ class user
 				
 				$timenow = TIMENOW;
 				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-				$ipsl = addslashes($ip);
 				$uahash = $this->getuahash();
 				$this->db->query("
-					UPDATE {$this->prefix}session SET session_IP='$ipsl',
-					session_lastvisited=$timenow, session_uahash=$uahash
-					WHERE session_hash='$sessionhash'");
+					UPDATE {$this->prefix}session SET session_IP=?,
+					session_lastvisited=?, session_uahash=?
+					WHERE session_hash=?",
+					$ip, $timenow, $uahash, $sessionhash);
 			}
 			else
 				$this->context->setcookie('session', '', 946684800, '/', '', false, true);
@@ -108,7 +108,6 @@ class user
 		{
 			list($userid, $farhash) = explode('.', $loginuser);
 			$userid = (int)$userid;
-			$farhash = addslashes($farhash);
 			$expire = TIMENOW - $this->persistlength;
 			
 			$userdetails = $this->db->query_single("
@@ -123,10 +122,11 @@ class user
 					INNER JOIN {$this->prefix}user AS u ON
 						user_ID=userlogin_userID
 				WHERE
-					userlogin_userID=$userid
-					AND userlogin_hash='$farhash'
-					AND userlogin_time>$expire
-				"); // hopefully this uses the index with the hash rather than the time
+					userlogin_userID=?
+					AND userlogin_hash=?
+					AND userlogin_time>?
+					", $userid, $farhash, $expire);
+					// hopefully this uses the index with the hash rather than the time
 			
 			if ($userdetails)
 			{
@@ -181,15 +181,18 @@ class user
 		$this->debug->notice('user', 'Suspicious credentials', 'Killing session');
 		$newloginid = (int)$newloginid; $userid = (int)$userid;
 		$this->db->query("DELETE FROM {$this->prefix}session
-			WHERE session_userID=$userid");
+			WHERE session_userID=?", $userid);
 		if ($newloginid)
 		{
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_newID=0, userlogin_hashstillvalid=0
-				WHERE userlogin_userID=$userid AND userlogin_newID=$newloginid");
+				WHERE userlogin_userID=? AND userlogin_newID=?",
+				$userid, $newloginid);
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_newID=0, userlogin_hashstillvalid=0, userlogin_suspicious=1
-				WHERE userlogin_userID=$userid AND userlogin_sequenceID=$newloginid");
+				WHERE userlogin_userID=? AND userlogin_sequenceID=?",
+				$userid, $newloginid);
+
 			$this->status = 'loginfail_replayattack';
 		}
 		else $this->status = 'sessionfail_suspicious';
@@ -211,31 +214,32 @@ class user
 		{ // already we have a non-authenticated session
 			if (!$userid) return;
 			return $this->db->query("UPDATE {$this->prefix}session
-				SET session_userID=$userid, session_loginseqID=$seqid
-				WHERE session_hash='{$this->sessionhash}'");
+				SET session_userID=?, session_loginseqID=?
+				WHERE session_hash=?",
+				$userid, $seqid, $this->sessionhash);
 		}
 		
 		$this->debug->notice('user', 'Creating session');
 		$this->sessionhash = user::randhash('sessionhash');
 			
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-		$ipsl = addslashes($ip);
 		$uahash = $this->getuahash();
 		$timenow = TIMENOW;
 		
 		$this->db->query("
 			REPLACE INTO {$this->prefix}session
-			SET session_hash='{$this->sessionhash}', session_userID=$userid,
-			session_loginseqID=$seqid, session_IP='$ipsl', session_uahash=$uahash,
-			session_lastvisited=$timenow
-			");
+			SET session_hash=?, session_userID=?,
+			session_loginseqID=?, session_IP=?, session_uahash=?,
+			session_lastvisited=?
+			", $this->sessionhash, $userid, $seqid, $ip, $uahash, $timenow);
 		$this->context->setcookie('session', $this->sessionhash, 0, '/', '', false, true);
 		$this->session_exists = true;
 		
 		// occasionally delete expired sessions
 		if (mt_rand(0,100 == 50))
 			$this->db->query("DELETE FROM {$this->prefix}session 
-				WHERE session_lastvisited <" . ($timenow-$this->sessionlength));
+				WHERE session_lastvisited < ?",
+				$timenow-$this->sessionlength);
 	}
 	
 	public function processlogout()
@@ -243,7 +247,7 @@ class user
 	{
 		if (!$this->session_exists) return;
 		$this->db->query("DELETE FROM {$this->prefix}session
-			WHERE session_hash='{$this->sessionhash}'");
+			WHERE session_hash=?", $this->sessionhash);
 			
 		if ($this->logged_in && !empty($this->userdetails['ps_seqid']))
 		{
@@ -251,10 +255,12 @@ class user
 			$seqid = $this->userdetails['ps_seqid'];
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_hash=NULL, userlogin_hashstillvalid=0, userlogin_newID=0
-				WHERE userlogin_userID=$userid AND userlogin_sequenceID=$seqid");
+				WHERE userlogin_userID=? AND userlogin_sequenceID=?",
+				$userid, $seqid);
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_hash=NULL, userlogin_newID=0
-				WHERE userlogin_userID=$userid AND userlogin_newID=$seqid");
+				WHERE userlogin_userID=? AND userlogin_newID=?",
+				$userid, $seqid);
 			$this->context->setcookie('stay_logged_in', '', 946684800, '/', '', false, true);
 		}
 		$this->context->setcookie('session', '', 946684800, '/', '', false, true);
@@ -267,49 +273,52 @@ class user
 		$hashstillvalid = $persistent ? 1 : 0;
 		
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-		$ipsl = addslashes($ip);
-		$hostsl = !empty($_SERVER['REMOTE_HOST']) ? addslashes($_SERVER['REMOTE_HOST'])
-			: addslashes(gethostbyaddr($ip));
-		$useragentsl = !empty($_SERVER['HTTP_USER_AGENT']) ?
-			addslashes($_SERVER['HTTP_USER_AGENT']) : '';
+		$host = !empty($_SERVER['REMOTE_HOST']) ? $_SERVER['REMOTE_HOST']
+			: gethostbyaddr($ip);
+		$useragent = !empty($_SERVER['HTTP_USER_AGENT']) ?
+			$_SERVER['HTTP_USER_AGENT'] : '';
 		$userid = (int)$userdetails['user_ID'];
 		$timenow = TIMENOW;
-		$userhash = $persistent ? user::randhash('userhash') : '';
-		$userhasheq = ($userhash!='') ? "userlogin_hash='$userhash'," : '';
+		$userhash = $persistent ? user::randhash('userhash') : null;
 		list($seqid) = $this->db->query_single("
 			SELECT MAX(userlogin_sequenceID) FROM {$this->prefix}userlogin
-			WHERE userlogin_userid=$userid");
+			WHERE userlogin_userid=?", $userid);
 		$seqid++;
 		
 		$this->db->query("
 			INSERT INTO {$this->prefix}userlogin
 			SET
-				userlogin_userID=$userid, userlogin_sequenceID=$seqid,
-				$userhasheq userlogin_hashstillvalid=$hashstillvalid,
-				userlogin_IP='$ipsl', userlogin_host='$hostsl',
-				userlogin_useragent='$useragentsl', userlogin_time=$timenow
-			");
+				userlogin_userID=?, userlogin_sequenceID=?,
+				userlogin_hash=?, userlogin_hashstillvalid=?,
+				userlogin_IP=?, userlogin_host=?,
+				userlogin_useragent=?, userlogin_time=?
+			",
+			$userid, $seqid,
+			$userhash, $hashstillvalid,
+			$ip, $host,
+			$useragent, $timenow
+			);
 			
 		if ($oldseqid)
 		{
 			// invalidate and re-point old logins
 			$oldseqid = (int)$oldseqid;
 			$this->db->query("UPDATE {$this->prefix}userlogin
-				SET userlogin_hashstillvalid=0, userlogin_newID=$seqid
-				WHERE userlogin_userid=$userid AND userlogin_sequenceID=$oldseqid
-				");
+				SET userlogin_hashstillvalid=0, userlogin_newID=?
+				WHERE userlogin_userid=? AND userlogin_sequenceID=?
+				", $seqid, $userid, $oldseqid);
 			$this->db->query("UPDATE {$this->prefix}userlogin
-				SET userlogin_newID=$seqid
-				WHERE userlogin_userid=$userid AND userlogin_newID=$oldseqid
-				");
+				SET userlogin_newID=?
+				WHERE userlogin_userid=? AND userlogin_newID=?
+				", $seqid, $userid, $oldseqid);
 		}
 		if (mt_rand(0,200) == 50) // occasional clean up, also saves some space
 		{
 			$expire = TIMENOW - $this->persistlength;
 			$this->db->query("UPDATE {$this->prefix}userlogin
 				SET userlogin_hash=NULL, userlogin_newID=0, userlogin_hashstillvalid=0
-				WHERE userlogin_userid=$userid AND userlogin_time<$expire
-				");
+				WHERE userlogin_userid=? AND userlogin_time<?
+				", $userid, $expire);
 		}
 	
 		$this->logged_in = true;
