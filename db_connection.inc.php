@@ -31,6 +31,14 @@
 
 // A class for (low level) database abstraction
 
+// 20110623 - updated to use PDO rather than mysql backend & no longer mysql specific
+
+// REMOVED:
+//  num_rows() - this is not used, not useful and PDO doesn't have an equivalent
+//  $result parameter of fetch(), free_result() - not very useful and difficult with PDO
+//  persistent connections - not well supported with PDO < PHP 5.3, and have problems
+//  special trigger_error way of reporting errors - now all done with exceptions
+
 class db_connection
 {
 	private 
@@ -45,7 +53,6 @@ class db_connection
 	// if an error occurs, is_connected() will return false and get_error() will return an error message
 	
 	// expects $dbsettings to be an array:
-	//  'persistent' => true/false - optional, defaults to false (recommended)
 	//  'server' => server hostname
 	//  'database' => database to choose
 	//  'user' => username of connection
@@ -87,8 +94,6 @@ class db_connection
 		if (!$this->connection)
 			return false;
 			
-		// todo free result resources? if (is_resource($this->result)) @mysql_free_result($this->result);
-
 		$this->connection = null;
 		if ($this->statement) {
 			$this->statement->closeCursor();
@@ -182,7 +187,6 @@ class db_connection
 	
 	public function fetch_array()
 	{
-		//if ($result === null) $result = $this->result;
 		if (!$this->statement) {
 			throw new Exception('No database statement open; cannot fetch');
 			return;
@@ -225,16 +229,6 @@ class db_connection
 	{
 		return $this->prefix;
 	}
-	
-	/*
-	public function num_rows()
-	{
-		if (!$this->connection)
-			return $this->set_error('Could not return number of rows; no database connection exists');
-
-		return mysql_num_rows($this->result);
-	}
-	*/
 	
 	public function get_error()
 	{
