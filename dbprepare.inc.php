@@ -147,27 +147,23 @@ class dbprepare
 		$changedrows = 0;
 		if (is_array($records)) foreach ($records as $values)
 		{
-			$sets = array();
+			$sets = array();  // the sets and sets_update contain "`mykey`=?"
 			$sets_update = array();
-			foreach ($values as $key => $val)
-			{
-				$set = '`' . addslashes($key) . '`=';
-				if (is_int($val) || is_float($val))
-					$set .= (string)$val;
-				elseif (is_bool($val))
-					$set .= ($val ? '1' : '0');
-				elseif ($val === null)
-					$set .= 'NULL';
-				else
-					$set .= "'" . addslashes((string)$val) . "'";
-				$sets[] = $set;
-				if (!is_array($preserve) || !in_array($key, $preserve))
-					$sets_update[] = $set;
+			$params = array(); // parameterised query - these are the params
+			foreach ($values as $key => $val) {
+				$sets[] = '`' . addslashes($key) . '`=?';
+				$params[] = $val;
+			}
+			foreach ($values as $key => $val) {
+				if (!is_array($preserve) || !in_array($key, $preserve)) {
+					$sets_update[] = '`' . addslashes($key) . '`=?';
+					$params[] = $val;
+				}
 			}
 			if (count($sets))
 			{
 				$tablesl = addslashes($table);
-				$setstring = implode(', ', $sets);
+				$setstring = implode(',', $sets);
 				$insert = count($sets_update) ? 'INSERT' : 'REPLACE';
 				$onduplicate = count($sets_update) ? ('ON DUPLICATE KEY UPDATE '
 					. implode(', ', $sets_update)) : '';
@@ -177,7 +173,7 @@ class dbprepare
 					SET
 						$setstring
 					$onduplicate
-					");
+					", $params);
 				if ($this->db->affected_rows())
 					$changedrows++;
 			}
