@@ -7,7 +7,7 @@ A general purpose PHP library for web applications
 The Bluestone project includes classes for handling:
 
 - simple debugging, including backtraces
-- MySQL database connections
+- database abstraction now supporting parameterized queries
 - identifying file types based on content
 - creating and altering database tables to match a scheme
 - handling lots of features of HTTP including resuming and gzip encoding
