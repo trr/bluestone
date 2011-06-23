@@ -166,7 +166,7 @@ class dbprepare
 				$setstring = implode(',', $sets);
 				$insert = count($sets_update) ? 'INSERT' : 'REPLACE';
 				$onduplicate = count($sets_update) ? ('ON DUPLICATE KEY UPDATE '
-					. implode(', ', $sets_update)) : '';
+					. implode(',', $sets_update)) : '';
 				$this->db->query("
 					$insert INTO
 						`{$this->prefix}$tablesl`
