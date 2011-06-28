@@ -349,10 +349,10 @@ class user
 		$this->prefix = $this->db->get_prefix();
 	}
 	
-	public static function &getinstance()
+	public static function &getinstance($sessionlength = 2400, $persistdays = 90, $strongsessions = true)
 	{
 		static $instance;
-		if (!isset($instance)) $instance = new user(); 
+		if (!isset($instance)) $instance = new user($sessionlength, $persistdays, $strongsessions); 
 		return $instance;
 	}
 }
