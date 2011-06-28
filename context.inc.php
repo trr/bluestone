@@ -184,9 +184,8 @@ class context
 	// whether cookies have been sent for its caching mechanism
 	{
 		$this->cookies = true;
-		if (version_compare(PHP_VERSION, '5.2.0') > 0)
-			return setcookie($nam,$val,$exp,$path,$dom,$secu,$httponly);
-		return setcookie($nam,$val,$exp,$path,$dom,$secu); // compatibility with earlier PHP
+		// this now requires PHP 5.2
+		return setcookie($nam,$val,$exp,$path,$dom,$secu,$httponly);
 	}
 	
 	private function processcache($data, $isfile, $filename)
