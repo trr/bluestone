@@ -101,9 +101,11 @@ class user
 			else
 				$this->context->setcookie('session', '', 946684800, '/', '', false, true);
 		}	
+
+		exit(print_r($_COOKIE));
 		
 		if (!$this->logged_in 
-			&& ($loginuser = $this->context->load_var('stay_logged_in', 'REQUEST', 'location'))
+			&& ($loginuser = $this->context->load_var('stay_logged_in', 'COOKIE', 'location'))
 			&& strpos($loginuser, '.'))
 		{
 			list($userid, $farhash) = explode('.', $loginuser);
