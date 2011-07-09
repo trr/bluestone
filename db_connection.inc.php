@@ -162,11 +162,6 @@ class db_connection
 			throw new Exception('Database query failed; database connection not open');
 		
 		$this->num_queries++;
-		if (DEBUG)
-		{
-			$debug = &debug::getinstance();
-			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
-		}
 
 		// call query() with same arguments
 		$result = call_user_func_array(array($this, "query"), func_get_args());
@@ -179,8 +174,6 @@ class db_connection
 		else {
 			throw new Exception('Database query failed');
 		}
-
-		if (DEBUG) $debug->endtask($taskid);
 
 		return $result ? ($arr ? $arr : false) : false;
 	}
