@@ -177,7 +177,22 @@ class db_connection
 
 		return $result ? ($arr ? $arr : false) : false;
 	}
+
+	public function starttransaction() {
+		if (!$this->connection) {
+			throw new Exception('Could not start transaction; database connection not open');
+		}
+		return $this->connection->beginTransaction();
+	}
 	
+	public function commit() {
+		return $this->connection->commit();
+	}
+
+	public function rollback() {
+		return $this->connection->rollback();
+	}
+
 	public function fetch_array()
 	{
 		if (!$this->statement) {
