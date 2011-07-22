@@ -44,8 +44,7 @@ class db_connection
 	private 
 		$connection,
 		$statement,
-		$num_queries,
-		$prefix,
+		$prefix = '',
 		$error;
 
 	function __construct($dbsettings)
@@ -62,8 +61,9 @@ class db_connection
 	{
 		if (!class_exists('PDO')) throw new Exception('PHP does not appear to have PDO extension enabled');
 		
-		$this->num_queries = 0;
-		$this->prefix = isset($dbsettings['prefix']) ? $dbsettings['prefix'] : '';
+		if (isset($dbsettings['prefix'])) {
+			$this->set_prefix($dbsettings['prefix']);
+		}
 
 		$opts = array();
 		if (isset($dbsettings['database'])) $opts[] = "dbname=" . $dbsettings['database'];
@@ -94,11 +94,11 @@ class db_connection
 		if (!$this->connection)
 			return false;
 			
-		$this->connection = null;
 		if ($this->statement) {
 			$this->statement->closeCursor();
 			$this->statement = null;
 		}
+		$this->connection = null;
 		return true;
 	}
 	
@@ -111,10 +111,8 @@ class db_connection
 	public function query($query /*, param, param ... */)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	{
-		if (!$this->connection)
-			throw new Exception('Database query failed; database connection not open');
+		if (!$this->connection) throw new Exception('No database connection');
 
-		$this->num_queries++;
 		// debugging
 		if (DEBUG) {
 			$debug = &debug::getinstance();
@@ -158,10 +156,7 @@ class db_connection
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
 	{
-		if (!$this->connection)
-			throw new Exception('Database query failed; database connection not open');
-		
-		$this->num_queries++;
+		if (!$this->connection) throw new Exception('No database connection');
 
 		// call query() with same arguments
 		$result = call_user_func_array(array($this, "query"), func_get_args());
@@ -179,49 +174,38 @@ class db_connection
 	}
 
 	public function begintransaction() {
-		if (!$this->connection) {
-			throw new Exception('Could not start transaction; database connection not open');
-		}
+		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->beginTransaction();
 	}
 	
 	public function commit() {
+		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->commit();
 	}
 
 	public function rollback() {
+		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->rollback();
 	}
 
 	public function fetch_array()
 	{
-		if (!$this->statement) {
-			throw new Exception('No database statement open; cannot fetch');
-			return;
-		}
+		if (!$this->statement) throw new Exception('No database statement open');
 
-		if ($arr = $this->statement->fetch()) return $arr;
-
-		return false;
+		return $this->statement->fetch();
 	}
 	
 	public function affected_rows()
 	// return the number of rows affected by the last query like DELETE, UPDATE...
 	{
-		if (!$this->statement) {
-			throw new Exception('No database statement open; cannot rowcount');
-			return;
-		}
+		if (!$this->statement) throw new Exception('No database statement open');
 
 		return $this->statement->rowCount();
 	}
 	
 	public function free_result()
 	{
-		if (!$this->statement) {
-			throw new Exception('No database statement open; cannot free result');
-			return;
-		}
+		if (!$this->statement) throw new Exception('No database statement open');
 
 		$this->statement->closeCursor();
 		$this->statement = null;
@@ -229,8 +213,11 @@ class db_connection
 	}
 	
 	public function set_prefix($prefix)
+	// prefixes may now only contain the characters a-z, 0-9, A-Z, $, _ and unicode
+	// this is unlikely to affect anyone in normal circumstances and provides
+	// a bit of extra security when the prefix is placed unescaped into a query
 	{
-		$this->prefix = $prefix;	
+		$this->prefix = preg_replace('/[^a-z0-9A-Z$_\x80-\xFF]+/', '', $prefix);	
 	}
 	
 	public function get_prefix()
