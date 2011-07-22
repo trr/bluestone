@@ -39,8 +39,7 @@ class debug
 {
 	private
 		$notices = array(),
-		$starttime_sec,
-		$starttime_usec,
+		$starttime,
 		$tasks = array(),
 		$nexttaskid = 0,
 		$noticeid = 0,
@@ -53,7 +52,7 @@ class debug
 	// to use this as a singleton, use getinstance() instead
 	{
     $this->debugmode = $debugmode;
-		if ($debugmode) list($this->starttime_sec, $this->starttime_usec) = explode(' ', microtime());
+		if ($debugmode) $this->starttime = microtime(true);
 		
 		$this->useerrorhandler($useerrorhandler);
   }
@@ -67,9 +66,9 @@ class debug
 	{
 		if ($this->debugmode)
 		{
-			list($sec, $usec) = explode(' ', microtime());
-			$elapsed = (float)($sec - $this->starttime_sec) + (float)($usec - $this->starttime_usec);
-			$this->noticetime = array($sec, $usec);
+			$time = microtime(true);
+			$elapsed = $time - $this->starttime;
+			$this->noticetime = $time;
 		}
 		else $elapsed = null;
 
@@ -99,9 +98,9 @@ class debug
 	{
 		$this->notice($module, $taskname, $data);
 
-	  list($sec, $usec) = $this->noticetime;
+		$time = $this->noticetime;
 		$this->tasks[$this->nexttaskid] =
-			array('starttime_sec' => $sec, 'starttime_usec' => $usec, 'noticeid' => $this->noticeid);
+			array('starttime' => $time, 'noticeid' => $this->noticeid);
 
     return $this->nexttaskid++;
 	}
@@ -113,9 +112,9 @@ class debug
 		
 		if ($this->debugmode)
 		{
-		  list($sec, $usec) = explode(' ', microtime());
+			$time = microtime(true);
 			$this->notices[$task['noticeid']]['taskelapsed'] = 
-			 (float)($sec - $task['starttime_sec']) + (float)($usec - $task['starttime_usec']);
+				$time - $task['starttime'];
 		}
 		
 		unset($this->tasks[$taskid]);
@@ -156,7 +155,7 @@ class debug
 	public function seterrorcallback($callback)
 	// sets a function to be executed when a fatal error occurs.  it could
 	// output an error message to the screen.  in debug mode, this is not
-	// used
+	// use
 	{
 		$this->error_callback = $callback;
 	}
