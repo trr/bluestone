@@ -178,7 +178,7 @@ class db_connection
 		return $result ? ($arr ? $arr : false) : false;
 	}
 
-	public function starttransaction() {
+	public function begintransaction() {
 		if (!$this->connection) {
 			throw new Exception('Could not start transaction; database connection not open');
 		}
