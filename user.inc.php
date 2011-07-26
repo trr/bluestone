@@ -67,11 +67,14 @@ class user
 		$sessionhash = $this->context->load_var('session', 'COOKIE', 'location');
 		if ($sessionhash)
 		{
-			$expire = TIMENOW - $this->sessionlength;
+			$expire = (TIMENOW - $this->sessionlength) - 60;
 			$userdetails = $this->db->query_single("
 				SELECT 
-					u.*, session_IP AS ps_ip, session_uahash AS ps_ua,
-					session_loginseqID AS ps_seqid
+					u.*,
+					session_IP AS ps_ip,
+					session_uahash AS ps_ua,
+					session_loginseqID AS ps_seqid,
+					session_lastvisited AS ps_last
 				FROM
 					{$this->prefix}session AS s
 					LEFT JOIN {$this->prefix}user AS u ON
@@ -92,11 +95,17 @@ class user
 				$timenow = TIMENOW;
 				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 				$uahash = $this->getuahash();
-				$this->db->query("
-					UPDATE {$this->prefix}session SET session_IP=?,
-					session_lastvisited=?, session_uahash=?
-					WHERE session_hash=?",
-					$ip, $timenow, $uahash, $sessionhash);
+
+				// only write to DB if too much has changed
+				if ($userdetails['ps_ip'] != $ip ||
+					$userdetails['ps_ua'] != $uahash ||
+					$userdetails['ps_last'] < $timenow - 60) {
+					$this->db->query("
+						UPDATE {$this->prefix}session SET session_IP=?,
+						session_lastvisited=?, session_uahash=?
+						WHERE session_hash=?",
+						$ip, $timenow, $uahash, $sessionhash);
+				}
 			}
 			else
 				$this->context->setcookie('session', '', 946684800, '/', '', false, true);
