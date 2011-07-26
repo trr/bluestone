@@ -189,6 +189,7 @@ class user
 	{
 		$this->debug->notice('user', 'Suspicious credentials', 'Killing session');
 		$newloginid = (int)$newloginid; $userid = (int)$userid;
+		$this->db->begintransaction();
 		$this->db->query("DELETE FROM {$this->prefix}session
 			WHERE session_userID=?", $userid);
 		if ($newloginid)
@@ -205,6 +206,7 @@ class user
 			$this->status = 'loginfail_replayattack';
 		}
 		else $this->status = 'sessionfail_suspicious';
+		$this->db->commit();
 	}
 
 	private function getuahash()
@@ -255,6 +257,7 @@ class user
 	// logs the user out.  also loses session and "stay logged in" for this browser
 	{
 		if (!$this->session_exists) return;
+		$this->db->begintransaction();
 		$this->db->query("DELETE FROM {$this->prefix}session
 			WHERE session_hash=?", $this->sessionhash);
 			
@@ -272,6 +275,7 @@ class user
 				$userid, $seqid);
 			$this->context->setcookie('stay_logged_in', '', 946684800, '/', '', false, true);
 		}
+		$this->db->commit();
 		$this->context->setcookie('session', '', 946684800, '/', '', false, true);
 		$this->logged_in = $this->session_exists = false;
 	}
@@ -289,6 +293,7 @@ class user
 		$userid = (int)$userdetails['user_ID'];
 		$timenow = TIMENOW;
 		$userhash = $persistent ? user::randhash('userhash') : null;
+		$this->db->begintransaction();
 		list($seqid) = $this->db->query_single("
 			SELECT MAX(userlogin_sequenceID) FROM {$this->prefix}userlogin
 			WHERE userlogin_userid=?", $userid);
@@ -329,6 +334,7 @@ class user
 				WHERE userlogin_userid=? AND userlogin_time<?
 				", $userid, $expire);
 		}
+		$this->db->commit();
 	
 		$this->logged_in = true;
 		$this->userdetails = $userdetails;
