@@ -76,7 +76,7 @@ class user
 					session_loginseqID AS ps_seqid,
 					session_lastvisited AS ps_last
 				FROM
-					{$this->prefix}session AS s
+					{$this->prefix}session
 					LEFT JOIN {$this->prefix}user AS u ON
 						user_ID=session_userID
 				WHERE

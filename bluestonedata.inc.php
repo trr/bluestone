@@ -54,7 +54,7 @@ class bluestonedata
 				$tabledefs['session']['fields'] = array(
 					'session_hash'        => array('char(43)', ''),
 					'session_userID'      => array('int(11)', '0'),
-					'session_IP'          => array('char(47)', ''),
+					'session_IP'          => array('varchar(47)', ''),
 					'session_uahash'		=> array('int(11)', '0'),
 					'session_loginseqID'	=> array('int(11)', '0'),
 					'session_lastvisited' => array('int(11)', '0'),
@@ -63,7 +63,6 @@ class bluestonedata
 					'PRIMARY'              => array('PRIMARY', 'session_hash'),
 					'session_index_userID' => array('KEY', 'session_userID'),
 					);
-				$tabledefs['session']['isheap'] = true;
 				
 				/* user */
 				
