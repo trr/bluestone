@@ -51,8 +51,8 @@ class dbprepare
 		
 		$this->prefix = $this->db->get_prefix();
 		
-		$this->defaultengine = $defaultengine;
-		$this->defaultcollation = $defaultcollation;
+		$this->defaultengine = preg_replace('/[^\w-]+/', '', $defaultengine);
+		$this->defaultcollation = preg_replace('/[^\w-]+/', '', $defaultcollation);
 	}
 	
 	public function seterrorcallback($callback)
@@ -265,26 +265,12 @@ class dbprepare
 		}
 		elseif (!$heap && strtoupper($tablestatus['Engine']) != strtoupper($this->defaultengine))
 		{
-			// only bother to change mismatch if it is necessary for a fulltext index (works only on MyISAM)
-			$changed = false;
-			if (strtoupper($this->defaultengine) == 'MYISAM')
-				foreach ($indexes as $name => $val)
-					if (strtoupper(trim($val[0])) == 'FULLTEXT')
+			if ($suppress)
+				$this->seterror("Need to modify storage engine of table {$this->prefix}{$table} to $this->defaultengine", 'suppressed');
+			else
 			{
-				if ($suppress)
-					$this->seterror("Need to modify storage engine of table {$this->prefix}{$table} to MyISAM", 'suppressed');
-				else
-				{
-					$this->seterror("Table {$this->prefix}{$table}: Storage engine changed to MyISAM", 'changed');
-					$alterclauses[] = "ENGINE = MyISAM";
-				}
-				$changed = true;
-				break;
-			}
-			if (!$changed)
-			{
-				$expected = $heap ? "MEMORY" : $this->defaultengine;
-				$this->seterror("Storage engine of table {$this->prefix}{$table} is {$tablestatus['Engine']} rather than expected $expected.");
+				$this->seterror("Table {$this->prefix}{$table}: Storage engine changed to $this->defaultengine", 'changed');
+				$alterclauses[] = "ENGINE = $this->defaultengine";
 			}
 		}
 		
