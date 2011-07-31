@@ -114,7 +114,7 @@ class context
 	// filters a string to remove invalid utf-8.  filters recursively
 	// if $val is an array.
 	{
-		require_once(BLUESTONE_DIR . 'utf8_string.inc.php');
+		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 		if (is_array($val))
 		{
 			foreach ($val as $vkey => $vval)
@@ -138,7 +138,7 @@ class context
 	// returns an http redirect
 	{
 		$cookies = $this->cookies ? true : false;
-		require_once(BLUESTONE_DIR . 'system/redirect.inc.php');
+		require_once(BLUESTONE_DIR . '/system/redirect.inc.php');
 	}
 	
 	public function header($text, $replace = false)
@@ -334,7 +334,7 @@ class context
 			if ($this->length >= 8192) header('Accept-Ranges: bytes');
 			if (!empty($_SERVER['HTTP_RANGE']))
 			{
-				require_once(BLUESTONE_DIR . 'httpresume.inc.php');
+				require_once(BLUESTONE_DIR . '/httpresume.inc.php');
 				$httpresume = 
 					new httpresume($this->length, $this->etag, $this->lastmodified, $this->vary, $this->contenttype);
 				$ranges = $httpresume->getranges();	
@@ -395,7 +395,7 @@ class context
 	// halts the script and displays an error message.  this is only to be used when
 	// the error is absolutely unavoidable and beyond user's control
 	{
-		include(BLUESTONE_DIR . 'system/fatalerror.inc.php'); exit;
+		include(BLUESTONE_DIR . '/system/fatalerror.inc.php'); exit;
 	}
 	
 	public static function &getinstance()

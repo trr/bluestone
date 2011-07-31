@@ -174,7 +174,7 @@ class debug
 			if (!empty($this->error_callback))
 				call_user_func($this->error_callback, 'Application Error');
 			else
-				require(BLUESTONE_DIR . 'system/fatalerror.inc.php');
+				require(BLUESTONE_DIR . '/system/fatalerror.inc.php');
 			exit;
 		}
 

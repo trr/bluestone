@@ -32,8 +32,8 @@
 // strings can be normalised in various ways, or chopped into distinct words
 // ready for sorting or indexing.
 
-if (!defined('BLUESTONE_DIR')) define('BLUESTONE_DIR', dirname(__FILE__) . '/');
-require_once(BLUESTONE_DIR . 'utf8_string.inc.php');
+if (!defined('BLUESTONE_DIR')) define('BLUESTONE_DIR', dirname(__FILE__));
+require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 
 class textnormal
 {

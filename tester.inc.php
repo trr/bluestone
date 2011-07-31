@@ -30,8 +30,8 @@
 */
 
 if (!defined('BLUESTONE_DIR'))
-	define('BLUESTONE_DIR', dirname(__FILE__) . '/');
-require_once(BLUESTONE_DIR . 'debug.inc.php');
+	define('BLUESTONE_DIR', dirname(__FILE__));
+require_once(BLUESTONE_DIR . '/debug.inc.php');
 
 class tester
 {

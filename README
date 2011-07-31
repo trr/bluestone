@@ -28,10 +28,12 @@ Bluestone can be used in your PHP application by placing its files
 into any directory on the server.
 
 In your application configuration, you should define where the bluestone
-files are using the BLUESTONE_DIR constant.  Include the trailing slash.
+files are using the BLUESTONE_DIR constant.  Do not include the trailing
+slash.
+
 For example,
 
-define(BLUESTONE_DIR, '/path/to/bluestone/');
+define(BLUESTONE_DIR, '/path/to/bluestone');
 
 License
 =======
