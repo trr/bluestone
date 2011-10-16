@@ -46,7 +46,7 @@ class user
 		$logged_in = false,
 		$userdetails = null,
 		$status = null,
-		$safe_token,
+		$safe_token = null,
 		$sessionlength,
 		$persistlength,
 		$strongsessions;
@@ -89,6 +89,8 @@ class user
 			{
 				$this->session_exists = true;
 				$this->sessionhash = $sessionhash;
+				$this->safe_token = user::uhash($this->sessionhash .
+					'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
 				$this->userdetails = $userdetails;
 				$this->logged_in = $this->userdetails['user_ID'] > 0;
 				
@@ -157,8 +159,6 @@ class user
 			else
 				$this->context->setcookie('stay_logged_in', '', 946684800, '/', '', false, true);
 	  	}
-		$this->safe_token = $this->session_exists ?
-			user::uhash($this->sessionhash.'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU') : '';
 		
 		return array(
 			'details' => $this->logged_in ? $this->userdetails : array(
@@ -167,6 +167,11 @@ class user
 			'session_exists' => $this->session_exists,
 			'token' => $this->safe_token,
 			);
+	}
+
+	public function gettoken() {
+	// returns the current safe token value at any time
+		return $this->safe_token;
 	}
 	
 	private function sourcecheck($oldip, $oldua)
@@ -232,6 +237,8 @@ class user
 		
 		$this->debug->notice('user', 'Creating session');
 		$this->sessionhash = user::randhash('sessionhash');
+		$this->safe_token = user::uhash($this->sessionhash .
+			'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
 			
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 		$uahash = $this->getuahash();
@@ -277,6 +284,7 @@ class user
 		}
 		$this->db->commit();
 		$this->context->setcookie('session', '', 946684800, '/', '', false, true);
+		$this->safe_token = $this->sessionhash = null;
 		$this->logged_in = $this->session_exists = false;
 	}
 	
