@@ -344,7 +344,7 @@ class user
 		}
 		$this->db->commit();
 	
-		$this->startsession($this->userdetails['user_ID'], $seqid);
+		$this->startsession($userid, $seqid);
 		$this->logged_in = true;
 		$this->userdetails = $userdetails;
 		$this->userdetails['ps_seqid'] = $seqid;
