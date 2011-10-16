@@ -221,7 +221,7 @@ class user
 		return ($uahash >= 0x80000000) ? ($uahash - 0x100000000) : $uahash;
 	}
 
-	private function startsession($userid = 0, $seqid = 0)
+	public function startsession($userid = 0, $seqid = 0)
 	// starts a session, with optional userid and login sequence ID.
 	// if a session is already active & not logged in, modifies the existing session instead 
 	{
