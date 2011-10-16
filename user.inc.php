@@ -344,10 +344,10 @@ class user
 		}
 		$this->db->commit();
 	
+		$this->startsession($this->userdetails['user_ID'], $seqid);
 		$this->logged_in = true;
 		$this->userdetails = $userdetails;
 		$this->userdetails['ps_seqid'] = $seqid;
-		$this->startsession($this->userdetails['user_ID'], $seqid);
 		
 		if ($persistent) $this->context->setcookie('stay_logged_in', 
 			$this->userdetails['user_ID'] . ".$userhash",
