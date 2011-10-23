@@ -234,7 +234,15 @@ class user
 				WHERE session_hash=?",
 				$userid, $seqid, $this->sessionhash);
 		}
-		
+
+		// don't need to start sessions for known bots
+		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
+		if (preg_match('#(?:^|ble;\s+)
+			(?:
+				Googlebot|Yahoo!\s+Slurp|bingbot|Baiduspider|ia_archiver|
+				Mediapartners-Google|Ask Jeeves/Teoma|TinEye|YandexBot
+			)#x', $ua)) return;
+
 		$this->debug->notice('user', 'Creating session');
 		$this->sessionhash = user::randhash('sessionhash');
 		$this->safe_token = user::uhash($this->sessionhash .
