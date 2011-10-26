@@ -98,7 +98,17 @@ class context
 			case 'alphanumeric':
 				return (preg_match('/^[a-zA-Z0-9]++$/', (string)$val)) ? (string)$val : NULL;
 			case 'email':
-				return (preg_match('/^[\w.+-]+\@[a-zA-Z.-]+\.[a-zA-Z-]{2,8}$/', (string)$val)) ? (string)$val : NULL;
+				// todo: filter non-ascii chars, disallow quoted parts anywhere
+				return preg_match('/^(?:
+						[\w!#$%&\'*+\/=?^`{|}~_-]+ |
+						(?<!\.|^).(?!\.|@) |
+						"(?: [^ "\\\\\t\n\r]+ | \\\\[ \"\\\\] )*"
+					)+
+					@
+					(?:
+						[a-zA-Z0-9] (?:[a-zA-Z0-9-]*[a-zA-Z0-9])? (?:\.(?!$))?
+					)+
+					$/x', (string)$val) ? (string)$val : null;
 			case 'submit':
 			  return true;
 			case 'select':
