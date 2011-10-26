@@ -234,24 +234,34 @@ class user
 				WHERE session_hash=?",
 				$userid, $seqid, $this->sessionhash);
 		}
-		
+
 		$this->debug->notice('user', 'Creating session');
 		$this->sessionhash = user::randhash('sessionhash');
+		$this->context->setcookie('session', $this->sessionhash, 0, '/', '', false, true);
+		$this->session_exists = true;
 		$this->safe_token = user::uhash($this->sessionhash .
 			'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
+
+		// stop here if it's a known bot (prevents database query and excessive
+		// session table entries)
+		$ua = $this->context->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
+		if (preg_match('#(?:^|ble;\s+)
+			(?:
+				Googlebot|Yahoo!\s+Slurp|bingbot|Baiduspider|ia_archiver|
+				Mediapartners-Google|Ask Jeeves/Teoma|TinEye|YandexBot
+			)#x', $ua)) return;
 			
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 		$uahash = $this->getuahash();
 		$timenow = TIMENOW;
 		
+		// record in database
 		$this->db->query("
 			REPLACE INTO {$this->prefix}session
 			SET session_hash=?, session_userID=?,
 			session_loginseqID=?, session_IP=?, session_uahash=?,
 			session_lastvisited=?
 			", $this->sessionhash, $userid, $seqid, $ip, $uahash, $timenow);
-		$this->context->setcookie('session', $this->sessionhash, 0, '/', '', false, true);
-		$this->session_exists = true;
 		
 		// occasionally delete expired sessions
 		if (mt_rand(0,100 == 50))
