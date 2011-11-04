@@ -264,7 +264,7 @@ class user
 			", $this->sessionhash, $userid, $seqid, $ip, $uahash, $timenow);
 		
 		// occasionally delete expired sessions
-		if (mt_rand(0,100 == 50))
+		if (mt_rand(0,100) == 50)
 			$this->db->query("DELETE FROM {$this->prefix}session 
 				WHERE session_lastvisited < ?",
 				$timenow-$this->sessionlength);
