@@ -188,11 +188,11 @@ class db_connection
 		return $this->connection->rollback();
 	}
 
-	public function fetch_array()
+	public function fetch_array($numeric = false)
 	{
 		if (!$this->statement) throw new Exception('No database statement open');
 
-		return $this->statement->fetch();
+		return $this->statement->fetch(!$numeric ? PDO::FETCH_ASSOC : PDO::FETCH_NUM);
 	}
 	
 	public function affected_rows()
