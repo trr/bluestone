@@ -144,7 +144,7 @@ class context
 			trigger_error('Unexpected empty POST; post_max_size exceeded?', E_USER_ERROR);
 	}
 
-	public function redirect($destination, $temporary = false)
+	public function redirect($destination, $temporary = false, $subjecttochange = true)
 	// returns an http redirect
 	{
 		$cookies = $this->cookies ? true : false;

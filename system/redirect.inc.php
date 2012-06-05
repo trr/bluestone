@@ -48,7 +48,7 @@ for ($i = ob_get_level(); $i > 0; $i--) @ob_end_clean();
 header("HTTP/1.1 $status");
 header("Location: $destination");
 
-if ($temporary) header('Cache-Control: no-cache');
+if ($temporary || $subjecttochange) header('Cache-Control: no-cache');
 
 $destination = htmlspecialchars($destination);
 $destslash = addslashes($destination);
