@@ -101,7 +101,7 @@ class context
 				// todo: filter non-ascii chars, disallow quoted parts anywhere
 				return preg_match('/^(?:
 						[\w!#$%&\'*+\/=?^`{|}~_-]+ |
-						(?<!\.|^).(?!\.|@) |
+						(?<!\.|^)\.(?!\.|@) |
 						"(?: [^ "\\\\\t\n\r]+ | \\\\[ \"\\\\] )*"
 					)+
 					@
