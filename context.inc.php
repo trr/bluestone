@@ -146,6 +146,7 @@ class context
 
 	public function redirect($destination, $temporary = false, $subjecttochange = true)
 	// returns an http redirect
+	// if subjecttochange and temporary are false, the redirect can be cached by user
 	{
 		$cookies = $this->cookies ? true : false;
 		require_once(BLUESTONE_DIR . '/system/redirect.inc.php');
