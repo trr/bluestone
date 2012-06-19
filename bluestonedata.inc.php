@@ -83,7 +83,6 @@ class bluestonedata
 					'userlogin_suspicious'	=> array('tinyint(1)', '0'),
 					'userlogin_newID'			=> array('bigint(20)', '0'),
 					'userlogin_IP'				=> array('varchar(47)', '0'),
-					'userlogin_host'			=> array('varchar(128)', '0'),
 					'userlogin_useragent'	=> array('varchar(255)', '0'),
 					'userlogin_time'			=> array('int(11)', '0'),
 					);

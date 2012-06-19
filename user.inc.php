@@ -315,8 +315,6 @@ class user
 		$hashstillvalid = $persistent ? 1 : 0;
 		
 		$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-		$host = !empty($_SERVER['REMOTE_HOST']) ? $_SERVER['REMOTE_HOST']
-			: gethostbyaddr($ip);
 		$useragent = !empty($_SERVER['HTTP_USER_AGENT']) ?
 			$_SERVER['HTTP_USER_AGENT'] : '';
 		$userid = (int)$userdetails['user_ID'];
@@ -333,12 +331,12 @@ class user
 			SET
 				userlogin_userID=?, userlogin_sequenceID=?,
 				userlogin_hash=?, userlogin_hashstillvalid=?,
-				userlogin_IP=?, userlogin_host=?,
+				userlogin_IP=?,
 				userlogin_useragent=?, userlogin_time=?
 			",
 			$userid, $seqid,
 			$userhash, $hashstillvalid,
-			$ip, $host,
+			$ip,
 			$useragent, $timenow
 			);
 			
