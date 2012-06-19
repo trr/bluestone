@@ -39,7 +39,7 @@ class user
 	private
 		$context,
 		$debug,
-		$db,
+		$db = null,
 		$prefix,
 		$session_exists = false,
 		$sessionhash = null,
@@ -65,55 +65,59 @@ class user
 	{
 		// check for existing session
 		$sessionhash = $this->context->load_var('session', 'COOKIE', 'location');
-		if ($sessionhash)
-		{
-			$expire = (TIMENOW - $this->sessionlength) - 60;
-			$userdetails = $this->db->query_single("
-				SELECT 
-					u.*,
-					session_IP AS ps_ip,
-					session_uahash AS ps_ua,
-					session_loginseqID AS ps_seqid,
-					session_lastvisited AS ps_last
-				FROM
-					{$this->prefix}session
-					LEFT JOIN {$this->prefix}user AS u ON
-						user_ID=session_userID
-				WHERE
-					session_hash=?
-					AND session_lastvisited>=?
-				", $sessionhash, $expire);	
-				
-			if (!empty($userdetails)
-				&& $this->sourcecheck($userdetails['ps_ip'], $userdetails['ps_ua']))
-			{
-				$this->session_exists = true;
-				$this->sessionhash = $sessionhash;
-				$this->safe_token = user::uhash($this->sessionhash .
-					'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
-				$this->userdetails = $userdetails;
-				$this->logged_in = $this->userdetails['user_ID'] > 0;
-				
-				$timenow = TIMENOW;
-				$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
-				$uahash = $this->getuahash();
 
-				// only write to DB if too much has changed
-				if ($userdetails['ps_ip'] != $ip ||
-					$userdetails['ps_ua'] != $uahash ||
-					$userdetails['ps_last'] < $timenow - 60) {
-					$this->db->query("
-						UPDATE {$this->prefix}session SET session_IP=?,
-						session_lastvisited=?, session_uahash=?
-						WHERE session_hash=?",
-						$ip, $timenow, $uahash, $sessionhash);
+		if ($sessionhash && strlen($sessionhash) == 43)
+		{
+			$this->safe_token = user::uhash($this->sessionhash .
+				'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
+
+			if ($this->db) {
+				$expire = (TIMENOW - $this->sessionlength) - 60;
+				$userdetails = $this->db->query_single("
+					SELECT 
+						u.*,
+						session_IP AS ps_ip,
+						session_uahash AS ps_ua,
+						session_loginseqID AS ps_seqid,
+						session_lastvisited AS ps_last
+					FROM
+						{$this->prefix}session
+						LEFT JOIN {$this->prefix}user AS u ON
+							user_ID=session_userID
+					WHERE
+						session_hash=?
+						AND session_lastvisited>=?
+					", $sessionhash, $expire);	
+					
+				if (!empty($userdetails)
+					&& $this->sourcecheck($userdetails['ps_ip'], $userdetails['ps_ua']))
+				{
+					$this->session_exists = true;
+					$this->sessionhash = $sessionhash;
+					$this->userdetails = $userdetails;
+					$this->logged_in = $this->userdetails['user_ID'] > 0;
+					
+					$timenow = TIMENOW;
+					$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
+					$uahash = $this->getuahash();
+
+					// only write to DB if too much has changed
+					if ($userdetails['ps_ip'] != $ip ||
+						$userdetails['ps_ua'] != $uahash ||
+						$userdetails['ps_last'] < $timenow - 60) {
+						$this->db->query("
+							UPDATE {$this->prefix}session SET session_IP=?,
+							session_lastvisited=?, session_uahash=?
+							WHERE session_hash=?",
+							$ip, $timenow, $uahash, $sessionhash);
+					}
 				}
+				else
+					$this->context->setcookie('session', '', 946684800, '/', '', false, true);
 			}
-			else
-				$this->context->setcookie('session', '', 946684800, '/', '', false, true);
 		}	
 
-		if (!$this->logged_in 
+		if ($this->db && !$this->logged_in 
 			&& ($loginuser = $this->context->load_var('stay_logged_in', 'COOKIE', 'location'))
 			&& strpos($loginuser, '.'))
 		{
@@ -158,7 +162,7 @@ class user
 			}
 			else
 				$this->context->setcookie('stay_logged_in', '', 946684800, '/', '', false, true);
-	  	}
+		}
 		
 		return array(
 			'details' => $this->logged_in ? $this->userdetails : array(
@@ -169,8 +173,8 @@ class user
 			);
 	}
 
-	public function gettoken() {
-	// returns the current safe token value at any time
+	public function gettoken($setnew = true) {
+	// returns the current safe token value at any time.
 		return $this->safe_token;
 	}
 	
@@ -220,12 +224,13 @@ class user
 		$uahash = crc32(preg_replace('/[^a-za-z();]++/', ' ', $ua));
 		return ($uahash >= 0x80000000) ? ($uahash - 0x100000000) : $uahash;
 	}
-
+	
 	public function startsession($userid = 0, $seqid = 0)
 	// starts a session, with optional userid and login sequence ID.
 	// if a session is already active & not logged in, modifies the existing session instead 
 	{
 		$userid = (int)$userid; $seqid = (int)$seqid;
+
 		if ($this->session_exists && !$this->logged_in)
 		{ // already we have a non-authenticated session
 			if (!$userid) return;
@@ -235,12 +240,18 @@ class user
 				$userid, $seqid, $this->sessionhash);
 		}
 
-		$this->debug->notice('user', 'Creating session');
-		$this->sessionhash = user::randhash('sessionhash');
-		$this->context->setcookie('session', $this->sessionhash, 0, '/', '', false, true);
-		$this->session_exists = true;
-		$this->safe_token = user::uhash($this->sessionhash .
+		$sessionhash = user::randhash('sessionhash');
+		$this->context->setcookie('session', $sessionhash, 0, '/', '', false, true);
+		$this->safe_token = user::uhash($sessionhash .
 			'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
+
+		// if no DB, create psuedo-session which is only the cookie
+		// and safe_token, no actual session
+		if (!$this->db && !$userid) return;
+
+		$this->debug->notice('user', 'Creating session');
+		$this->sessionhash = $sessionhash;
+		$this->session_exists = true;
 
 		// stop here if it's a known bot (prevents database query and excessive
 		// session table entries)
