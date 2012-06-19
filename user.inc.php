@@ -68,7 +68,7 @@ class user
 
 		if ($sessionhash && strlen($sessionhash) == 43)
 		{
-			$this->safe_token = user::uhash($this->sessionhash .
+			$this->safe_token = user::uhash($sessionhash .
 				'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
 
 			if ($this->db) {
