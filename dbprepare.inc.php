@@ -248,8 +248,8 @@ class dbprepare
 		
 		$alterclauses = array();
 
-		$suppress = $this->suppressbigchanges && ($tablestatus['Data_length'] + $tablestatus['Index_length']) > 4194304; 
-		// tables over 4mb will be slow for most ALTER actions
+		$suppress = $this->suppressbigchanges && ($tablestatus['Data_length'] + $tablestatus['Index_length']) > 12582912; 
+		// tables over 12mb will be slow for most ALTER actions
 		
 		// compare storage engine
 		if ($currentisheap != $heap)
@@ -603,7 +603,7 @@ class dbprepare
 				// need to add index
 				$def = $this->getindexdefinition($indexname, $val);
 				if ($suppress)
-					$this->seterror("Need to add $indexname on fields $val[1] to table {$this->prefix}{$table}", 'suppressed');
+					$this->seterror("Need to add index $indexname on fields $val[1] to table {$this->prefix}{$table}", 'suppressed');
 				else
 				{
 					$this->seterror("Table {$this->prefix}{$table}: Index $indexname added", 'changed');
