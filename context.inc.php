@@ -285,7 +285,7 @@ class context
 			return false;
 		$acceptencoding = $this->load_var('HTTP_ACCEPT_ENCODING', 'SERVER', 'string');
 		if (empty($acceptencoding)) return false;
-		if (!preg_match('#^(text/|application/(xhtml|xml|postsc|mswor|excel|rtf|x-tar)|image/(bmp|tiff))#i', $this->contenttype))
+		if (!preg_match('#^(text/|application/(xht|xml|postsc|mswo|excel|rtf|x-tar|json|javas|atom|rss|rdf)|image/(bmp|tif))#i', $this->contenttype))
 			return false;
 		return preg_match('/(?<=^|\b)gzip($|\b)/i', $acceptencoding);
 	}
