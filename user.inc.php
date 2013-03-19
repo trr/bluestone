@@ -373,11 +373,15 @@ class user
 			$timenow+$this->persistlength, '/', '', false, true);
 	}
 	
-	public static function randhash($seed = '')
-	// generates random hash, should be hard to predict but slowish
+	public static function randhash($extraseed = '')
+	// generates random hash, should be hard to predict
 	{		
-		return user::uhash(uniqid($seed,true).'c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys'
-			. serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));		
+		$seed = mt_rand().__FILE__.mt_rand().uniqid('c8PM',true).$extraseed;
+
+		if (function_exists('openssl_random_pseudo_bytes'))
+			$seed .= openssl_random_pseudo_bytes(32);
+
+		return self::uhash($seed);
 	}
 	
 	public static function uhash($d)
