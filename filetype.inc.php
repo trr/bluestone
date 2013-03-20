@@ -266,20 +266,39 @@ class filetype
 		}
 		return false;
 	}
-	
+
+	private static $safety = array(
+		'image/gif' => 2, 'image/png' => 2, 'image/jpeg' => 2,
+		'image/bmp' => 1, 'image/tiff' => 1, 'image/ico' => 1,
+		'application/avi' => 1, 'application/mp4' => 1, 'application/flv' => 1,
+		'application/rdf' => 1, 'text/plain' => 1,
+		// PDF removed; can now run javascript?!
+		);
+
 	public function gettype()
 	// returns just a single matching type.  if more than one type matched, then
-	// it tries to go with the more specific or important one
+	// it returns the most specific matching type in the lowest safety bracket
+	// that is, if it matches a non-browser-safe type, it returns the most specific
+	// matching non-browser-safe type
 	// if no types matched, it returns application/octet-stream
 	// note that if you serve application/octet-stream you may get browser sniffed by IE
 	{
 		if (!isset($this->types)) $this->gettypes();
 		
-		if (!empty($this->types))
-			foreach ($this->types as $key => $val)
-				if ($val) return $key;
+		if (!$this->valid) throw new Exception('File was not valid');
+		 
+		if (empty($this->types)) return 'application/octet-stream';
+
+		$safety = 999;
+		$safeindex = array();
+		foreach ($this->types as $key => $val) {
+			$filesafety = isset(self::$safety[$key]) ? self::$safety[$key] : 0;
+			$safety = min($safety, $filesafety);
+			if (!isset($safeindex[$safety])) 
+				$safeindex[$safety] = $key;
+		}
 		
-		return 'application/octet-stream';
+		return $safeindex[$safety];
 	}
 	
 	public function issafeimage()
@@ -290,11 +309,11 @@ class filetype
 		if (!isset($this->types)) $this->gettypes();
 		
 		if (!$this->valid || empty($this->types)) return false;
+		$safety = 999;
 		foreach ($this->types as $key => $val)
-			if ($val && (!in_array($key, array('image/gif', 'image/png', 'image/jpeg'))))
-				return false;
+			$safety = min($safety, isset(self::$safety[$key]) ? self::$safety[$key] : 0);
 		
-		return true;
+		return $safety >= 2;
 	}
 	
 	public function isbrowsersafe()
@@ -305,23 +324,21 @@ class filetype
 		if (!isset($this->types)) $this->gettypes();
 		
 		if (!$this->valid || empty($this->types)) return false;
+		$safety = 999;
 		foreach ($this->types as $key => $val)
-			if ($val && (!in_array($key, array(
-				'image/gif', 'image/png', 'image/jpeg',
-				'image/bmp', 'image/tiff', 'image/ico',
-				'application/avi', 'application/mp4', 'application/flv',
-				'application/rdf', 'text/plain'				
-				// PDF removed; can now run javascript?
-				))))
-				return false;
+			$safety = min($safety, isset(self::$safety[$key]) ? self::$safety[$key] : 0);
 		
-		return true;
+		return $safety >= 1;
 	}
 }
 
-// TODO profiling
+/*
+$microtime = microtime(true);
 
-//$filetype = new filetype(null, "d:/temp/me4.jpg");
-//var_export($filetype->gettypes());
+$filetype = new filetype(null, "/tmp/hybrid.png");
+var_export($filetype->gettype());
+
+echo "\n" . (microtime(true) - $microtime);
+*/
 
 ?>
