@@ -107,7 +107,7 @@ class filetype
 		}
 		return false;	
 	}
-	
+
 	public function gettypes()
 	// analyses the type of the file and returns a list of matching types
 	// we use x- rather than vnd. notation for types where it doesn't seem official
@@ -122,29 +122,30 @@ class filetype
 			"\x89PNG\x0d\x0a\x1a\x0a" => 'image/png',
 			"II*\x00" => 'image/tiff',
 			"MM\x00*" => 'image/tiff',
-			"\x00\x00\x01\x00" => 'image/ico',
-			"\x00\x00\x02\x00" => 'image/ico',
-			"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" => 'application/msoffice',
-			"PK\x03\x04\x14\x00\x06\x00" => 'application/msoffice',
-			"PK\x03\x04\x14\x00\x00\x00\x00\x00" => 'application/opendocument', // check
+			"\x00\x00\x01\x00" => 'image/x-icon',
+			"\x00\x00\x02\x00" => 'image/x-icon',
+			"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" => 'application/msword',
+			"PK\x03\x04\x14\x00\x06\x00" => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			"PK\x03\x04\x14\x00\x00\x00\x00\x00" => 'application/vnd.oasis.opendocument.text', // check sig is still needed
+			"PK\x03\x04\x14\x00\x00\x08\x00\x00" => 'application/vnd.oasis.opendocument.text',
 			"\xff\xfb" => 'audio/mpeg', // MP3
 			"ID3" => 'audio/mpeg', // MP3
-			"fLaC" => 'audio/flac',
+			"fLaC" => 'audio/x-flac',
 			"OggS" => 'audio/ogg',
 			"\x1f\x9d\x90" => 'application/x-gzip',
-			"7z\xbc\xaf\x27\x1c" => 'application/x-7z',
-			"MSCF" => 'application/x-cab', // MS CAB FILE
+			"7z\xbc\xaf\x27\x1c" => 'application/x-7z-compressed',
+			"MSCF" => 'application/vnd.ms-cab-compressed', // MS CAB FILE
 			"ISc(" => 'application/x-cab', // Installshield CAB
-			"\xca\xfe\xba\xbe" => 'application/x-java-class',
-			"FLV" => 'application/flv',
+			"\xca\xfe\xba\xbe" => 'application/java-vm',
+			"FLV" => 'application/x-flv',
 			"GIF89a" => 'image/gif',
 			"GIF87a" => 'image/gif',
 			"BM" => 'image/bmp',
-			"MZ" => 'application/exe', // also DLL, OCX, SCR etc
-			"ZM" => 'application/exe',
-			"NE" => 'application/exe', // note false positives quite likely
-			"RIFF" => 'application/avi',
-			"FWS" => 'application/swf',
+			"MZ" => 'application/x-msdownload', // EXE, also DLL, OCX, SCR etc
+			"ZM" => 'application/x-msdownload',
+			"NE" => 'application/x-msdownload', // note false positives quite likely
+			"RIFF" => 'video/x-msvideo',
+			"FWS" => 'application/x-shockwave-flash',
 			"XFIR" => 'application/x-shockwave',
 			"%!PS" => 'application/postscript',
 			"{\rtf1" => 'application/rtf',			
@@ -192,6 +193,39 @@ class filetype
 		// TODO add ini/inf detection
 		
 		return array_keys($this->types);			
+	}
+	
+	public function getextension() {
+		// gets an appropriate file extension.  Note that some types can have multiple extensions
+		// not apparent in the file identifier, so an Excel and Word doc may both end as "doc", etc.
+		if (!isset($this->types)) $this->gettypes();
+		
+		if (!$this->valid) throw new Exception('File was not valid');
+
+		static $extensions = array(
+			'image/jpeg' => 'jpeg', 'image/png' => 'png', 'image/tiff' => 'tiff',
+			'image/x-icon' => 'ico', 'application/msword' => 'doc',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+			'application/vnd.oasis.opendocument.text' => 'odt',
+			'audio/mpeg' => 'mp3', 'audio/x-flac' => 'flac', 'audio/ogg' => 'ogg',
+			'application/x-gzip' => 'gz', 'application/x-7z-compressed' => '7z',
+			'application/vnd.ms-cab-compressed' => 'cab', 'application/x-cab' => 'cab',
+			'application/java-vm' => 'class', 'application/x-flv' => 'flv',
+			'image/gif' => 'gif', 'image/bmp' => 'bmp', 'application/x-msdownload' => 'exe',
+			'video/x-msvideo' => 'avi', 'application/x-shockwave-flash' => 'swf',
+			'application/x-shockwave' => 'dcr', 'application/postscript' => 'ps',
+			'application/rtf' => 'rtf', 'application/zip' => 'zip', 'text/html' => 'html',
+			'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'x-httpd-php-source' => 'php',
+			'text/x-cross-domain-policy' => 'xml', 'image/svg+xml' => 'svg', 
+			'application/xml' => 'xml', 'application/pdf' => 'pdf',
+			'text/x-component' => 'htc',
+			'application/octet-stream' => 'bin',
+			);
+
+		$type = $this->gettype();
+		if (isset($extensions[$type])) return $extensions[$type];
+
+		return 'bin';
 	}
 	
 	private function gettypehtml($chunklower)
@@ -277,10 +311,10 @@ class filetype
 
 	private static $safety = array(
 		'image/gif' => 2, 'image/png' => 2, 'image/jpeg' => 2,
-		'image/bmp' => 1, 'image/tiff' => 1, 'image/ico' => 1,
+		'image/bmp' => 1, 'image/tiff' => 1, 'image/x-icon' => 1,
 		'application/avi' => 1, 'application/mp4' => 1, 'application/flv' => 1,
-		'application/rdf' => 1, 'text/plain' => 1,
-		'audio/mpeg' => 1, 'audio/flac' => 1, 'audio/ogg' => 1,
+		'application/rtf' => 1, 'text/plain' => 1,
+		'audio/mpeg' => 1, 'audio/x-flac' => 1, 'audio/ogg' => 1,
 		// PDF removed; can now run javascript?!
 		);
 
@@ -344,10 +378,11 @@ class filetype
 /*
 $microtime = microtime(true);
 
-$filetype = new filetype(null, "/tmp/music.mp3");
-var_export($filetype->gettype());
+$filetype = new filetype(null, "/tmp/xlsx.xlsx");
+var_export($filetype->gettypes());
+var_export($filetype->getextension());
 
 echo "\n" . (microtime(true) - $microtime);
- */
+*/
 
 ?>
