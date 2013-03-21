@@ -127,6 +127,10 @@ class filetype
 			"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" => 'application/msoffice',
 			"PK\x03\x04\x14\x00\x06\x00" => 'application/msoffice',
 			"PK\x03\x04\x14\x00\x00\x00\x00\x00" => 'application/opendocument', // check
+			"\xff\xfb" => 'audio/mpeg', // MP3
+			"ID3" => 'audio/mpeg', // MP3
+			"fLaC" => 'audio/flac',
+			"OggS" => 'audio/ogg',
 			"\x1f\x9d\x90" => 'application/x-gzip',
 			"7z\xbc\xaf\x27\x1c" => 'application/x-7z',
 			"MSCF" => 'application/x-cab', // MS CAB FILE
@@ -166,7 +170,11 @@ class filetype
 			'moov', 'free', 'skip', 'mdat', 'pnot'))) $this->types['video/quicktime'] = true;
 		
 		// php source test
-		if (strpos(strtolower($chunk), '<?php')!==false) $this->types['application/x-httpd-php-source'] = true;
+		if (strpos($chunklower, '<?php')!==false) $this->types['application/x-httpd-php-source'] = true;
+
+		// crossdomain.xml
+		if (strpos($chunklower, '<cross-domain-policy')!== false)
+			$this->types['text/x-cross-domain-policy'] = true;
 		
 		// xml types
 		if (substr(ltrim($chunk), 0, 5) == '<?xml')
@@ -272,6 +280,7 @@ class filetype
 		'image/bmp' => 1, 'image/tiff' => 1, 'image/ico' => 1,
 		'application/avi' => 1, 'application/mp4' => 1, 'application/flv' => 1,
 		'application/rdf' => 1, 'text/plain' => 1,
+		'audio/mpeg' => 1, 'audio/flac' => 1, 'audio/ogg' => 1,
 		// PDF removed; can now run javascript?!
 		);
 
@@ -335,10 +344,10 @@ class filetype
 /*
 $microtime = microtime(true);
 
-$filetype = new filetype(null, "/tmp/hybrid.png");
+$filetype = new filetype(null, "/tmp/music.mp3");
 var_export($filetype->gettype());
 
 echo "\n" . (microtime(true) - $microtime);
-*/
+ */
 
 ?>
