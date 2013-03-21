@@ -190,6 +190,7 @@ class filetype
 		// htc (microsoft dhtml behaviours) - not an exhaustive check
 		if (strpos($chunklower, '<public:component>')!==false) $this->types['text/x-component'] = true;
 		
+		if ($this->gettypetext($chunk)) $this->types['text/plain'] = true;
 		// TODO add ini/inf detection
 		
 		return array_keys($this->types);			
@@ -218,7 +219,7 @@ class filetype
 			'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'x-httpd-php-source' => 'php',
 			'text/x-cross-domain-policy' => 'xml', 'image/svg+xml' => 'svg', 
 			'application/xml' => 'xml', 'application/pdf' => 'pdf',
-			'text/x-component' => 'htc',
+			'text/x-component' => 'htc', 'text/plain' => 'txt',
 			'application/octet-stream' => 'bin',
 			);
 
@@ -241,6 +242,17 @@ class filetype
 			if (strpos($chunklower, $match)!== false) return true;
 		if (strpos($chunklower, '<!--') !== false && strpos($chunklower, '-->') !== false) return true; 
 		return false;
+	}
+
+	private function gettypetext($chunk) {
+		// return true if this could remotely be called plain text - wildly inaccurate
+
+		if (strpos($chunk, "\x00")!== false || strpos(substr($chunk, 4), "\xFF")!== false) return false;
+
+		$whitespace = substr_count($chunk, " ") + substr_count($chunk, "\n") + substr_count($chunk, "\r");
+		if ($whitespace < 12) return false;
+
+		return true;
 	}
 	
 	private function gettypezip($chunk)
@@ -313,7 +325,7 @@ class filetype
 		'image/gif' => 2, 'image/png' => 2, 'image/jpeg' => 2,
 		'image/bmp' => 1, 'image/tiff' => 1, 'image/x-icon' => 1,
 		'application/avi' => 1, 'application/mp4' => 1, 'application/flv' => 1,
-		'application/rtf' => 1, 'text/plain' => 1,
+		'application/rtf' => 1, /*'text/plain' => 1,*/ // text/plain not accurate
 		'audio/mpeg' => 1, 'audio/x-flac' => 1, 'audio/ogg' => 1,
 		// PDF removed; can now run javascript?!
 		);
