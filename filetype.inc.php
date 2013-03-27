@@ -132,7 +132,7 @@ class filetype
 			"ID3" => 'audio/mpeg', // MP3
 			"fLaC" => 'audio/x-flac',
 			"OggS" => 'audio/ogg',
-			"\x1f\x9d\x90" => 'application/x-gzip',
+			"\x1f\x8b\x08" => 'application/x-gzip',
 			"7z\xbc\xaf\x27\x1c" => 'application/x-7z-compressed',
 			"MSCF" => 'application/vnd.ms-cab-compressed', // MS CAB FILE
 			"ISc(" => 'application/x-cab', // Installshield CAB
