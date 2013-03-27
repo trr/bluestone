@@ -216,7 +216,7 @@ class filetype
 			'video/x-msvideo' => 'avi', 'application/x-shockwave-flash' => 'swf',
 			'application/x-shockwave' => 'dcr', 'application/postscript' => 'ps',
 			'application/rtf' => 'rtf', 'application/zip' => 'zip', 'text/html' => 'html',
-			'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'x-httpd-php-source' => 'php',
+			'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'application/x-httpd-php-source' => 'php',
 			'text/x-cross-domain-policy' => 'xml', 'image/svg+xml' => 'svg', 
 			'application/xml' => 'xml', 'application/pdf' => 'pdf',
 			'text/x-component' => 'htc', 'text/plain' => 'txt',
