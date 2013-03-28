@@ -259,7 +259,7 @@ class filetype
 	// more thorough check to see if the file could be identified as zip
 	// errs on the side of detecting; true result could mean "looks like zip but who knows if it works"
 	{
-		if ($chunk[0]=='P' && $chunk[1]=='K' && $chunk[2] < 0x09 && $chunk[3] < 0x09)
+		if (strlen($chunk) >= 4 && $chunk[0]=='P' && $chunk[1]=='K' && $chunk[2] < 0x09 && $chunk[3] < 0x09)
 			return true;
 		
 		$i = $this->length;
