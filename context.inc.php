@@ -210,17 +210,12 @@ class context
 			|| !empty($this->cache_directives['no-cache'])); 
 		$nohttp10 = $this->vary != '' || $this->statuscode != 200 || $this->max_age < 300;
 		
-		// do not send cache control headers for IE5.5 or IE6 when gzip encoding
-		// see http://support.microsoft.com/default.aspx?scid=kb;en-us;321722
-		$noheaders = $this->docompress
-			&& $this->vary != '' && preg_match('/MSIE [654]\.[05];/', $ua);
-
 		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
 		if ($this->docompress) $this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
 		
-		if (count($this->cache_directives) && !$noheaders) 
+		if (count($this->cache_directives)) 
 			header("Cache-Control: " . implode(', ', $this->cache_directives));
-		if (!$nofresh && !$nohttp10 && !$noheaders)
+		if (!$nofresh && !$nohttp10)
 			header("Expires: " . gmdate('D, d M Y H:i:s', TIMENOW + $this->max_age) . ' GMT');
 		if ($this->vary!='')
 			header("Vary: {$this->vary}");
@@ -278,11 +273,6 @@ class context
 	private function processgzip()
 	{
  		if (!extension_loaded('zlib')) return false;
-		// Do not gzip compress javascript or CSS for internet explorer 6 due to bug
-		if (preg_match('#^text/css\b|^text/javascript\b#', $this->contenttype)
-			&& ($ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string'))
-			&& preg_match('/MSIE [654]\.[05];/', $ua))
-			return false;
 		$acceptencoding = $this->load_var('HTTP_ACCEPT_ENCODING', 'SERVER', 'string');
 		if (empty($acceptencoding)) return false;
 		if (!preg_match('#^(text/|application/(xht|xml|postsc|mswo|excel|rtf|x-tar|json|javas|atom|rss|rdf)|image/(bmp|tif))#i', $this->contenttype))
