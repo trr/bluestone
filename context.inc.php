@@ -210,7 +210,8 @@ class context
 			|| !empty($this->cache_directives['no-cache'])); 
 		
 		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
-		if ($this->docompress) $this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
+		if ($this->docompress && $this->vary != '*')
+			$this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
 		
 		if (count($this->cache_directives)) 
 			header("Cache-Control: " . implode(', ', $this->cache_directives));
