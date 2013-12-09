@@ -227,8 +227,9 @@ class context
 		// but some versions of apache 2 (at least) won't allow it, so we don't
 		{
 			// etag
-			$this->etag = $isfile ? md5($filename.filemtime($filename).':'.filesize($filename)) 
-				: md5($data."\xff\xdf{$this->docompress}");
+			$this->etag = rtrim(strtr(base64_encode(md5( 
+				$isfile ? $filename.filemtime($filename).':'.filesize($filename) : $data."\xff\xdf{$this->docompress}",
+				true)),'+/','-_'),'=');
 			header("ETag: \"{$this->etag}\"");
 			$ifnonematch = $this->load_var('HTTP_IF_NONE_MATCH', 'SERVER', 'string');
 			if ($ifnonematch=='*' || strpos($ifnonematch, '"'.$this->etag.'"')!==false)
