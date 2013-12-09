@@ -207,6 +207,7 @@ class context
 		$nofresh = ($this->max_age === null
 			|| ($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
 			|| $this->vary=='*' || (strpos($this->vary, ',') !== false) // common intolerance of multiple vary
+				// WHICH browsers/UAs don't support multiple Vary? Where did I read this?
 			|| !empty($this->cache_directives['no-cache'])); 
 		
 		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
