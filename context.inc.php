@@ -208,15 +208,12 @@ class context
 			|| ($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
 			|| $this->vary=='*' || (strpos($this->vary, ',') !== false) // common intolerance of multiple vary
 			|| !empty($this->cache_directives['no-cache'])); 
-		$nohttp10 = $this->vary != '' || $this->statuscode != 200 || $this->max_age < 300;
 		
 		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
 		if ($this->docompress) $this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
 		
 		if (count($this->cache_directives)) 
 			header("Cache-Control: " . implode(', ', $this->cache_directives));
-		if (!$nofresh && !$nohttp10)
-			header("Expires: " . gmdate('D, d M Y H:i:s', TIMENOW + $this->max_age) . ' GMT');
 		if ($this->vary!='')
 			header("Vary: {$this->vary}");
 		
