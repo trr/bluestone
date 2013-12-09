@@ -307,7 +307,7 @@ class context
 			
 		$this->docompress = ($gzipcompress && !$isfile) ? $this->processgzip() : false;
 		
-		//header('X-Powered-By: '); header('Server: ');
+		header_remove('X-Powered-By');
 		if ($this->processcache($data, $isfile, $this->contentfilename))
 		{
 			header("Content-Type: {$this->contenttype}");
