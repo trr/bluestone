@@ -331,7 +331,7 @@ class context
 			$this->length = $isfile ? filesize($this->contentfilename) : strlen($data);
 			
 			// resuming support
-			if ($this->length >= 8192) header('Accept-Ranges: bytes');
+			if ($this->length >= 32768) header('Accept-Ranges: bytes');
 			if (!empty($_SERVER['HTTP_RANGE']))
 			{
 				require_once(BLUESTONE_DIR . '/httpresume.inc.php');
@@ -382,7 +382,7 @@ class context
 		if ($start !== null) fseek($file, $start);
 		for ($bytesread=0; ($len===null||$bytesread<$len) && !feof($file);)
 		{
-			$fetch = $len===null ? 32768 : min(32768, $len-$bytesread);
+			$fetch = $len===null ? 1048576 : min(1048576, $len-$bytesread);
 			$data = fread($file, $fetch);
 			$bytesread += strlen($data);
 			echo $data;
