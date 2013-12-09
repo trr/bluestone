@@ -72,7 +72,7 @@ class diff
 		return $i + strspn(strrev($xor), "\0");
 	}
 	
-	public static function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false)
+	public static function strgetdifflen($a, $b, $aoff = 1, $boff = 0, $utf8 = false, $coarse = false, $final = true)
 	// substring matching - returns the length in bytes of the initial segments
 	// of the strings (from offsets) which contain no significant matching substrings.
 	// utf8 mode avoids breaking utf8 chars
@@ -90,14 +90,14 @@ class diff
 		{			
 			if ($i < $bmax-$cmplen)
 				$pos1 = strpos(substr($a, $aoff, $i+$cmplen), substr($b, $boff+$i, $cmplen));
-			if ($i < $amax-$cmplen)
+			if ($i < $amax-$cmplen) {
 				$pos2 = strpos(substr($b, $boff, (($pos1 === false) ? $i : $pos1)+$cmplen-1),
 					substr($a, $aoff+$i, $cmplen));
-			
-			if ($pos2 !== false)
-				return diff::backtrack($a, $b, $i, $pos2, $aoff, $boff, $matchsize, $cmplen, $utf8);
-			elseif ($pos1 !== false)
-			{
+				if ($pos2 !== false)
+					return diff::backtrack($a, $b, $i, $pos2, $aoff, $boff, $matchsize, $cmplen, $utf8);
+			}
+
+			if ($pos1 !== false) {
 				list($blen,$alen) 
 					= diff::backtrack($b, $a, $i, $pos1, $boff, $aoff, $matchsize, $cmplen, $utf8);
 				return array($alen, $blen);
@@ -107,6 +107,10 @@ class diff
 			$matchsize = min($maxmatchsize, ceil($matchsize*1.25));
 			$cmplen = min($matchsize, $coarse ? 120 : 12);
 		}
+		// backtrack from end if this is really the end
+		if ($final)
+			return diff::backtrack($a, $b, $amax, $bmax, $aoff, $boff, $matchsize, $cmplen, $utf8);
+
 		return array($amax, $bmax);
 	}
 	
@@ -133,7 +137,7 @@ class diff
 	}
 	
 	private static function strgetdifflen_segment(
-		$a1, $b1, $aoff, $boff, $aseg, $bseg, $asegpos, $bsegpos, $coarse)
+		$a1, $b1, $aoff, $boff, $aseg, $bseg, $asegpos, $bsegpos, $coarse, $final)
 	// a version of strgetdifflen that can be used segment-by-segment on very large files
 	// for internal use
 	{
@@ -148,18 +152,16 @@ class diff
 			// checking back near start - for inserts/deletes
 			if ($i < $bmax-$cmplen)
 				$pos1 = strpos(substr($a1, $aoff), substr($bseg, $i, $cmplen));
-			if ($i < $amax-$cmplen)
+			if ($i < $amax-$cmplen) {
 				$pos2 = strpos(substr($b1, $boff, ($pos1===false?PHP_INT_MAX:($pos1+$cmplen-1))),
 					substr($aseg, $i, $cmplen));
-			
-			if ($pos2 !== false)
-			{
-				list($apos,$bpos) = diff::backtrack(
-					$aseg, $b1, $i, $pos2, 0, $boff, $matchsize, $cmplen);
-				return array($asegpos+$apos-$aoff, $bpos);
+				if ($pos2 !== false) {
+					list($apos,$bpos) = diff::backtrack(
+						$aseg, $b1, $i, $pos2, 0, $boff, $matchsize, $cmplen);
+					return array($asegpos+$apos-$aoff, $bpos);
+				}
 			}
-			elseif ($pos1 !== false)
-			{
+			if ($pos1 !== false) {
 				list($bpos,$apos) = diff::backtrack(
 					$bseg, $a1, $i, $pos1, 0, $aoff, $matchsize, $cmplen);
 				return array($apos, $bsegpos+$bpos-$boff);
@@ -168,23 +170,28 @@ class diff
 			// checking in current segment - for replacing
 			if ($i < $bmax-$cmplen)
 				$pos1 = strpos(substr($aseg, 0, $i+$cmplen), substr($bseg, $i, $cmplen));
-			if ($i < $amax-$cmplen)
+			if ($i < $amax-$cmplen) {
 				$pos2 = strpos(substr($bseg, 0, ($pos1===false ? $i : $pos1)+$cmplen-1),
 				substr($aseg, $i, $cmplen));
-			
-			if ($pos2 !== false)
-			{
-				list($apos,$bpos)
-					= diff::backtrack($aseg, $bseg, $i, $pos2, 0, 0, $matchsize, $cmplen);
-				return array($asegpos+$apos-$aoff, $bsegpos+$bpos-$boff);
+				if ($pos2 !== false) {
+					list($apos,$bpos)
+						= diff::backtrack($aseg, $bseg, $i, $pos2, 0, 0, $matchsize, $cmplen);
+					return array($asegpos+$apos-$aoff, $bsegpos+$bpos-$boff);
+				}
 			}
-			elseif ($pos1 !== false)
-			{
+			if ($pos1 !== false) {
 				list($bpos,$apos) = diff::backtrack($bseg, $aseg, $i, $pos1, 0, 0, $matchsize, $cmplen);
 				return array($asegpos+$apos-$aoff, $bsegpos+$bpos-$boff);
 			}
 			$i += $matchsize;
 		}
+		// backtrack from end if this is really the end
+		if ($final) {
+			list($apos,$bpos)
+				= diff::backtrack($aseg, $bseg, $amax, $bmax, 0, 0, $matchsize, $cmplen);
+			return array($asegpos+$apos-$aoff, $bsegpos+$bpos-$boff);
+		}
+
 		return array($amax+$asegpos-$aoff, $bmax+$bsegpos-$boff);
 	}
 	
@@ -246,14 +253,16 @@ class diff
 			
 			$coarse = $count>30000;
 			list($amov, $bmov) = diff::strgetdifflen(
-				$abuf, $bbuf, $aoff-$asegpos, $boff-$bsegpos, false, $coarse);
+				$abuf, $bbuf, $aoff-$asegpos, $boff-$bsegpos, false, $coarse, 
+				$aoff+$seglen >= $alen && $boff+$seglen >= $blen);
 			$asegshift = $aoff; $bsegshift = $boff;
 			if ($amov == $seglen-($aoff-$asegpos)) do
 			{
 				$aseg = diff::getfilechunk($a, $aoff+($amov-($coarse?119:11)), $asegshift);
 				$bseg = diff::getfilechunk($b, $boff+($bmov-($coarse?119:11)), $bsegshift);
 				list($amov,$bmov) = diff::strgetdifflen_segment(
-					$abuf, $bbuf, $aoff, $boff, $aseg, $bseg, $asegshift, $bsegshift, $coarse);
+					$abuf, $bbuf, $aoff, $boff, $aseg, $bseg, $asegshift, $bsegshift, $coarse,
+					$asegshift+$seglen >= $alen && $bsegshift+$seglen >= $blen);
 			}
 			while (($amov || $bmov)
 				&& $amov == strlen($aseg)+$asegshift-$aoff
@@ -347,13 +356,18 @@ class diff
 /*
 set_time_limit(12);
 
-$a = str_repeat("The quick brown fox jumps over the lazy dog", 10);
-$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 10);
-$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 10);
+$a = str_repeat("The quick brown fox jumps over the lazy dog", 100);
+$b = str_repeat("The quick brown fox leaps over my weird big lazy pig", 100);
+$c = str_repeat("The quick brown fox jumps under my weird little lazy dog", 100);
 echo (strlen($a) + strlen($b)) . "ready\n";
 
-//file_put_contents('outputa.txt', $a);
-//file_put_contents('outputb.txt', $b);
+file_put_contents('outputa.txt', $a);
+file_put_contents('outputb.txt', $b);
+
+//$res = diff::dodiff_file('outputa.txt', 'outputb.txt', true);
+//list($aoff, $amov, $boff, $bmov) = end($res);
+//var_dump(substr(substr(file_get_contents('outputa.txt'), $aoff, $amov), -50));
+//var_dump(substr(substr(file_get_contents('outputb.txt'), $boff, $bmov), -50));
 
 list($sec, $usec) = explode(' ', microtime());
 
@@ -361,7 +375,7 @@ set_time_limit(12);
 
 function binhash($d){return hash('sha1',$d,1);}
 
-for ($i = 0; $i < 100; $i++)
+for ($i = 0; $i < 60; $i++)
 {
 	//$result = uhash(uniqid('c8PMLhAlevWdEbNf9BRjWhbxhbkTaThJo9wwCadYiys', true)
 	//	.'ace'.serialize($_SERVER).mt_rand().__FILE__.time().serialize($_ENV));
@@ -371,7 +385,7 @@ for ($i = 0; $i < 100; $i++)
 	$el2 = diff::dodiff($a, $c, true);
 	$result = diff::mergeleft($el1, $el2);
 	$result = diff::assemblemerge($result, $a, $b, $c);
-	//$result = diff::dodiff_file('outputa.txt', 'outputb.txt');
+	$result = diff::dodiff_file('outputa.txt', 'outputb.txt');
 }
 
 list($xsec, $xusec) = explode(' ', microtime());
@@ -379,8 +393,8 @@ list($xsec, $xusec) = explode(' ', microtime());
 $elapsed = ($xsec - $sec) + ($xusec - $usec);
 echo count($result);
 echo "\n$elapsed\n";
-echo substr(var_export($result, true), 0, 6000);
+echo substr(var_export($result, true), 0, 300);
 exit;
- */
+*/
 
 ?>
