@@ -51,7 +51,7 @@ class user
 		$persistlength,
 		$strongsessions;
 
-	function __construct($sessionlength = 2400, $persistdays = 90, $strongsessions = true)
+	function __construct($sessionlength = 2400, $persistdays = 90, $strongsessions = false)
 	// for sessionlength we have an up-to-5-minute (300 second) leeway in addition to the 
 	// above duration
 	{
@@ -396,7 +396,7 @@ class user
 		$this->prefix = $this->db->get_prefix();
 	}
 	
-	public static function &getinstance($sessionlength = 2400, $persistdays = 90, $strongsessions = true)
+	public static function &getinstance($sessionlength = 2400, $persistdays = 90, $strongsessions = false)
 	{
 		static $instance;
 		if (!isset($instance)) $instance = new user($sessionlength, $persistdays, $strongsessions); 
