@@ -52,6 +52,8 @@ class user
 		$strongsessions;
 
 	function __construct($sessionlength = 2400, $persistdays = 90, $strongsessions = true)
+	// for sessionlength we have an up-to-5-minute (300 second) leeway in addition to the 
+	// above duration
 	{
 		$this->context = &context::getinstance();
 		$this->debug = &debug::getinstance();
@@ -72,7 +74,7 @@ class user
 				'bF2b3J1cOYPmS0vCgCFsmzRNiKckn50LRj47zPOHtTU');
 
 			if ($this->db) {
-				$expire = (TIMENOW - $this->sessionlength) - 60;
+				$expire = (TIMENOW - $this->sessionlength) - 300;
 				$userdetails = $this->db->query_single("
 					SELECT 
 						u.*,
@@ -101,10 +103,9 @@ class user
 					$ip = $this->context->load_var('REMOTE_ADDR', 'SERVER', 'string');
 					$uahash = $this->getuahash();
 
-					// only write to DB if too much has changed
-					if ($userdetails['ps_ip'] != $ip ||
-						$userdetails['ps_ua'] != $uahash ||
-						$userdetails['ps_last'] < $timenow - 60) {
+					// only write to DB if data is at least 5 mins old
+					if ($userdetails['ps_last'] < $timenow - 300) {
+							// todo only UPDATE on ps_last, not ps_ip or ps_ua
 						$this->db->query("
 							UPDATE {$this->prefix}session SET session_IP=?,
 							session_lastvisited=?, session_uahash=?
