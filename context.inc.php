@@ -66,11 +66,8 @@ class context
 	
 	public function load_var($varname, $source = 'GET', $type='string', $options = array())
 	{
-		if (!isset($this->sourcearray[$source])) return NULL;
-		$sourcevar = &$this->sourcearray[$source];
-		
-		if (isset($sourcevar[$varname])) $val = $sourcevar[$varname];
-			else return NULL;
+		if (!isset($this->sourcearray[$source][$varname])) return NULL;
+		$val = $this->sourcearray[$source][$varname];
 		
 		if ($this->magicquotes && is_string($val)) $val = stripslashes($val);
 			
@@ -80,11 +77,11 @@ class context
 				return (preg_match('/^[\w-]+$/', (string)$val)) ? (string)$val : NULL;
 			case 'int':
 				if (!is_numeric($val)) return NULL;
-				return (int) $val;
+				return (int)$val;
 			case 'string':
-				return $this->utf8_filter($val);
+				return $val != '' ? $this->utf8_filter((string)$val) : '';
 			case 'yesno':
-				return ($val) ? true : false;
+				return $val ? true : false;
 			case 'location':
 				return (preg_match('/^[\w.-]+$/', (string)$val)) ? (string)$val : NULL;
 			case 'password':
@@ -115,7 +112,7 @@ class context
 				foreach ($options as $optionval) if ($val == $optionval) return $optionval;
 				return NULL;
 			case 'mixed':
-				return ($val !== '') ? $this->utf8_filter($val) : '';
+				return $val !== '' ? $this->utf8_filter($val) : '';
 		}
 		return NULL;
 	}
@@ -124,13 +121,12 @@ class context
 	// filters a string to remove invalid utf-8.  filters recursively
 	// if $val is an array.
 	{
-		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
-		if (is_array($val))
-		{
+		if (is_array($val)) {
 			foreach ($val as $vkey => $vval)
 				$val[$vkey] = $this->utf8_filter($vval);
 			return $val;
 		}
+		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 		$str = new utf8_string($val);
 		return $str->filter();
 	}
