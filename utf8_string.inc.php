@@ -58,11 +58,10 @@ class utf8_string
 	// if allowcontrolcodes is false (default), then most C0 codes below 0x20, as
 	// well as C1 codes 127-159, will be denied - recommend false for html/xml
 	{
-		if ($this->string=='') return '';
-		return preg_match($allowcontrolcodes
+		return $this->string=='' || preg_match($allowcontrolcodes
 			? '/^[\x00-\x{d7ff}\x{e000}-\x{10ffff}]++$/u'
 			: '/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u',
-			$this->string) ? true : false;	
+			$this->string);
 	}
 	
 	public function filter($replace = '', $convert = true, $allowcontrolcodes = false)
@@ -72,7 +71,10 @@ class utf8_string
 	// is false) or iso-8859-1/cp-1252 (otherwise) and converted thusly to utf-8
 	{
 		// make sure this returns very fast if it is valid already
-		if ($this->validate($allowcontrolcodes)) return $this->string;
+		if ($this->string=='' || preg_match($allowcontrolcodes
+			? '/^[\x00-\x{d7ff}\x{e000}-\x{10ffff}]++$/u'
+			: '/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u',
+			$this->string)) return $this->string;
 		
 		// strip out control codes if they are the only reason it wouldn't validate
 		if (!$allowcontrolcodes 
@@ -111,8 +113,6 @@ class utf8_string
 
 		return strtr(strtr($this->string, utf8_string::$lowercharstable),
 			'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-		
-		return strtolower($this->string);
 	}
 	
 	/*
@@ -294,5 +294,17 @@ class utf8_string
 		"\xc9\x8e"=>"\xc9\x8f",);
 		
 }
+
+/*
+$utf8 = new utf8_string('something');
+
+$microtime = microtime(true);
+
+for ($i = 0; $i < 10000; $i++) {
+	$result = $utf8->filter();
+}
+
+echo "\n" . (microtime(true) - $microtime);
+ */
 
 ?>
