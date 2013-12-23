@@ -98,15 +98,14 @@ class context
 				return (preg_match('/^[a-zA-Z0-9]++$/', (string)$val)) ? (string)$val : NULL;
 			case 'email':
 				// todo: filter non-ascii chars, disallow quoted parts anywhere
-				return preg_match('/^(?:
+				return preg_match('/^
+					(?:
 						[\w!#$%&\'*+\/=?^`{|}~_-]+ |
 						(?<!\.|^)\.(?!\.|@) |
 						"(?: [^ "\\\\\t\n\r]+ | \\\\[ \"\\\\] )*"
 					)+
 					@
-					(?:
-						[a-zA-Z0-9] (?:[a-zA-Z0-9-]*[a-zA-Z0-9])? (?:\.(?!$))?
-					)+
+					(?: [a-zA-Z0-9] (?:[a-zA-Z0-9-]*[a-zA-Z0-9])? (?:\.(?!$))? )+
 					$/x', (string)$val) ? (string)$val : null;
 			case 'submit':
 			  return true;
