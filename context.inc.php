@@ -319,7 +319,7 @@ class context
 			}
 			if ($this->docompress)
 			{
-				$data = gzencode($data, 4);
+				$data = gzencode($data, 1);
 				
 				header('Content-Encoding: gzip');
 				ini_set('zlib.output_compression', 'Off');
