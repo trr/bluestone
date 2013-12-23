@@ -79,7 +79,9 @@ class context
 				if (!is_numeric($val)) return NULL;
 				return (int)$val;
 			case 'string':
-				return $val != '' ? $this->utf8_filter((string)$val) : '';
+				return $val == '' || 
+					preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val) ?
+					(string)$val : $this->utf8_filter((string)$val);
 			case 'yesno':
 				return $val ? true : false;
 			case 'location':
@@ -112,7 +114,9 @@ class context
 				foreach ($options as $optionval) if ($val == $optionval) return $optionval;
 				return NULL;
 			case 'mixed':
-				return $val !== '' ? $this->utf8_filter($val) : '';
+				return $val === '' || (!is_array($val) &&
+					preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val)) ?
+					$val : $this->utf8_filter($val);
 		}
 		return NULL;
 	}
