@@ -125,20 +125,15 @@ class db_connection
 		}
 
 		if (func_num_args() > 1) {
-			$this->statement = $this->connection->prepare($query);
 			$params = is_array(func_get_arg(1)) ? func_get_arg(1) :
 				array_slice(func_get_args(), 1);
 			foreach ($params as $id => $param) {
 				if (is_bool($param)) $params[$id] = $param ? 1 : 0;
 			}
+			$this->statement = $this->connection->prepare($query);
 			$this->statement->execute($params);
 		}
 		else {
-			/*
-			if ($this->warnunsafe && preg_match('/["\';]|(?!<[\w\d\.])\d|\bnull\b/i', $query)) {
-				throw new Exception("Please use query parameters");
-			}
-			 */
 			$this->statement = $this->connection->query($query);
 		}
 
