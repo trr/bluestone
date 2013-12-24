@@ -38,7 +38,7 @@ class user
 {
 	private
 		$context,
-		$debug,
+		$debug = null,
 		$db = null,
 		$prefix,
 		$session_exists = false,
@@ -56,7 +56,8 @@ class user
 	// above duration
 	{
 		$this->context = &context::getinstance();
-		if (DEBUG) $this->debug = &debug::getinstance();
+		if (class_exists('debug'))
+			$this->debug = &debug::getinstance();
 
 		$this->sessionlength = $sessionlength;
 		$this->persistlength = min($persistdays, 365) * 86400;
@@ -150,7 +151,7 @@ class user
 					// or let it slide if it was valid <30 seconds ago
 					($userdetails['pl_newID'] && $userdetails['pl_time'] > (TIMENOW-30)))
 				{
-					if (DEBUG) $this->debug->notice('user', 'Checking cookie', 'Valid persistent cookie found');
+					if ($this->debug) $this->debug->notice('user', 'Checking cookie', 'Valid persistent cookie found');
 					$this->userdetails = $userdetails;
 					if ($userdetails['pl_valid']) // unless we were let in under the '30 second rule'
 						$this->processlogin($userdetails, true, $userdetails['pl_seqID']);
@@ -197,7 +198,7 @@ class user
 	// what to do when we see something suspicious like and invalid hash re-used
 	// or session var crossing IP and user-agent boundaries
 	{
-		if (DEBUG) $this->debug->notice('user', 'Suspicious credentials', 'Killing session');
+		if ($this->debug) $this->debug->notice('user', 'Suspicious credentials', 'Killing session');
 		$newloginid = (int)$newloginid; $userid = (int)$userid;
 		$this->db->begintransaction();
 		$this->db->query("DELETE FROM {$this->prefix}session
@@ -250,7 +251,7 @@ class user
 		// and safe_token, no actual session
 		if (!$this->db && !$userid) return;
 
-		if (DEBUG) $this->debug->notice('user', 'Creating session');
+		if ($this->debug) $this->debug->notice('user', 'Creating session');
 		$this->sessionhash = $sessionhash;
 		$this->session_exists = true;
 

@@ -47,6 +47,7 @@ class context
 		$magicquotes,
 		$etag,
 		$method,
+		$debug = null,
 		$length,
 		$docompress;
 
@@ -62,6 +63,9 @@ class context
 		if (!empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'POST')
 			$this->check_posterror();
 		$this->magicquotes = get_magic_quotes_gpc();
+
+		if (class_exists('debug'))
+			$this->debug = &debug::getinstance();
 	}
 	
 	public function load_var($varname, $source = 'GET', $type='string', $options = array())
@@ -312,11 +316,10 @@ class context
 		{
 			header("Content-Type: {$this->contenttype}");
 			foreach ($this->headers as $val) header($val['header'], $val['replace']);
-			if (DEBUG && preg_match('!text/html;|application/xhtml(?:\+xml)?;!', $this->contenttype))
+			if ($this->debug && preg_match('!text/html;|application/xhtml(?:\+xml)?;!', $this->contenttype))
 			{
-				$debug = &debug::getinstance();
-				$debug->notice('context', 'Sending output');
-				$debugmessages = $debug->getnoticestext();
+				$this->debug->notice('context', 'Sending output');
+				$debugmessages = $this->debug->getnoticestext();
 				$debugmessages = str_replace('--', '==', $debugmessages);
 				$data .= "\n<!-- Debug messages:\n\n$debugmessages\n-->";
 			}
