@@ -39,7 +39,7 @@ if (!headers_sent())
 $postmethod = !empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD']=='POST';
 $postempty = ($postmethod && !count($_POST));
 
-if (class_exists('debug') && DEBUG)
+if (class_exists('debug') && defined('DEBUG') && DEBUG)
 {
 	$debug = &debug::getinstance();
 	$debugnotices = $debug->getnoticeshtml();
