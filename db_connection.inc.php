@@ -43,6 +43,7 @@ class db_connection
 {
 	private 
 		$connection,
+		$debug = null,
 		$statement,
 		$prefix = '',
 		$error;
@@ -85,6 +86,9 @@ class db_connection
 			$this->connection->setAttribute(PDO::ATTR_ERRMODE,
 				PDO::ERRMODE_EXCEPTION);
 		}
+
+		if (class_exists('debug'))
+			$this->debug = &debug::getinstance();
 	}
 	
 	public function close()
@@ -114,10 +118,8 @@ class db_connection
 		if (!$this->connection) throw new Exception('No database connection');
 
 		// debugging
-		if (DEBUG) {
-			$debug = &debug::getinstance();
-			$taskid = $debug->starttask('db_connection', 'Database query', $this->describe_query($query));
-		}
+		if ($this->debug)
+			$taskid = $this->debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 
 		if ($this->statement) {
 			$this->statement->closeCursor();
@@ -141,7 +143,7 @@ class db_connection
 			throw new Exception("Database query failed");
 		}
 
-		if (DEBUG) $debug->endtask($taskid);
+		if ($this->debug) $this->debug->endtask($taskid);
 
 		return $this->statement ? true : false;
 	}
