@@ -39,12 +39,9 @@ class debug
 {
 	private
 		$notices = array(),
-		$prof_func = array(),
 		$starttime,
-		$tasks = array(),
-		$nexttaskid = 0,
+		$depth = 0,
 		$noticeid = 0,
-		$noticetime = array(null, null),
 		$debugmode,
 		$useerrorhandler = false;
 
@@ -53,76 +50,56 @@ class debug
 	// to use this as a singleton, use getinstance() instead
 	{
     $this->debugmode = $debugmode;
-		if ($debugmode) {
-			$this->starttime = microtime(true);
-			if (defined('PROFILER') && PROFILER)
-				register_tick_function(array(&$this, 'debug_tickhandler'));
-		}
+		if ($debugmode) $this->starttime = microtime(true);
 		
 		$this->useerrorhandler($useerrorhandler);
   }
 
-	public function notice($module, $notice, $data = null, $errlog = false)
+	public function notice($module, $notice, $data = null)
 	// module is name of module - should be the classname where the error occurred
 	// or 'global' if in global scope
 	// notice is name of notice
 	// data is further information about this notice such as the arguments
-	// errlog should be set to true to show this in an error report
+	// errlog should be set to true to always show this in an error report
 	{
-		if ($this->debugmode)
-		{
-			$time = microtime(true);
-			$elapsed = $time - $this->starttime;
-			$this->noticetime = $time;
-		}
-		else $elapsed = null;
+		$time = !$this->debugmode ? null : microtime(true) - $this->starttime;
 
 		$this->notices[++$this->noticeid] = array(
 			'module' => $module,
 			'notice' => $notice,
-			'data' => (strlen($data) > (1024*512)) ? (substr($data, 0, (1024*512) - 15) . '... (truncated)') : $data,
-			'elapsed' => $elapsed,
-			'taskelapsed' => null,
-			'errlog' => $errlog,
-		);
+			'data' => strlen($data) > 8192 ? substr($data, 0, 8192 - 16) . ' ... (truncated)' : $data,
+			'elapsed' => $time,
+			'depth' => $this->depth
+			);
 
 		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
-		if ($this->noticeid > 80)
-		{
-			if (strlen($this->notices[$this->noticeid - 50]['data']) > 80)
-				$this->notices[$this->noticeid - 80]['data'] = substr($this->notices[$this->noticeid - 80]['data'], 0, 65) . '... (truncated)';
-			if ($this->noticeid > 251)
-				unset($this->notices[$this->noticeid - 250]);
-			elseif ($this->noticeid == 251)
-				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => $this->notices[1]['elapsed'], 'taskelapsed' => null, 'errlog' => false);
-		}
+		if ($this->noticeid > 251)
+			unset($this->notices[$this->noticeid - 250]);
+		elseif ($this->noticeid == 251)
+			$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null);
+
+		return $this->noticeid;
 	}
 	
-	public function starttask($module, $taskname, $data = NULL)
+	public function starttask($module, $taskname, $data = NULL) {
 	// returns a unique task id
-	{
-		$this->notice($module, $taskname, $data);
-
-		$time = $this->noticetime;
-		$this->tasks[$this->nexttaskid] =
-			array('starttime' => $time, 'noticeid' => $this->noticeid);
-
-    return $this->nexttaskid++;
+		$id = $this->notice($module, $taskname, $data);
+		$this->depth++;
+		return $id;
 	}
 	
-	public function endtask($taskid)
+	public function endtask($noticeid)
 	{
-	  if (!isset($this->tasks[$taskid])) return false;
-		$task = &$this->tasks[$taskid];
+		if (!isset($this->notices[$noticeid])) return false;
+
+		$time = !$this->debugmode ? null : microtime(true) - $this->starttime;
 		
-		if ($this->debugmode)
-		{
-			$time = microtime(true);
-			$this->notices[$task['noticeid']]['taskelapsed'] = 
-				$time - $task['starttime'];
+		if ($this->debugmode) {
+			$time = microtime(true) - $this->starttime;
+			$this->notices[$noticeid]['taskelapsed'] = 
+				$time - $this->notices[$noticeid]['elapsed'];
 		}
-		
-		unset($this->tasks[$taskid]);
+		if ($this->depth) $this->depth--;
 	}
 	
 	public function useerrorhandler($useerrorhandler = true)
@@ -205,74 +182,43 @@ class debug
 		exit((int)$errorlevel);
 	}
 	
-	public function getnoticeshtml($onlyerrors = false)
-	{
-		if (!count($this->notices)) return '';
-		$output = '<table style="font:small sans-serif" border="1" cellspacing="0" cellpadding="3" class="debugtable"><tr><th>Time (ms)</th><th>Task (ms)</th><th>Module</th><th>Notice Type</th><th>Data</th></tr>';
-		
-		foreach ($this->notices as $notice)
-		{
-			if ($onlyerrors && !$notice['errlog']) continue;
-			$taskelapsed = $notice['taskelapsed'] ? number_format($notice['taskelapsed'] * 1000, 2) : '&nbsp;';
-			$data = $notice['data'] ? htmlentities($notice['data']) : '&nbsp;';
-			$output .= '<tr><td>' . number_format($notice['elapsed'] * 1000, 2) . '</td><td>' . $taskelapsed . '</td><td>' . htmlentities($notice['module']) . '</td><td>' . htmlentities($notice['notice']) . '</td><td>' . $data . '</td></tr>';
-		}		
-		
-		$output .= '</table>';
-		
-	  return $output;
+	public function getnoticeshtml() {
+		return '<pre>' . htmlspecialchars($this->getnoticestext(160)) . '</pre>';
 	}
 	
-	public function getnoticestext($onlyerrors = false)
-	{
-	  if (empty($this->notices)) return '';
+	public function getnoticestext($linelength = 160) {
 		$output = '';
-    foreach ($this->notices as $notice)
-		{
-			if ($onlyerrors && !$notice['errlog']) continue;
-			$taskelapsed = $notice['taskelapsed'] ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) : '       ';
-			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 8, ' ', STR_PAD_LEFT) . ' ' . $taskelapsed . ' ';
-			$msg = '[' . $notice['module'] . '] ' . $notice['notice'];
-			if ($notice['data'] != '') $msg .= ': ' . $notice['data'];
-			$output .= wordwrap(str_replace("\n", "\n                 ", $msg), 61, "\n                 ", true) . "\n";
-		}		
 
-		$output .= var_export($this->prof_func, true);
-		
+    foreach ($this->notices as $notice) {
+			$taskelapsed = !empty($notice['taskelapsed']) ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) : '       ';
+			$indent = str_repeat('  ', $notice['depth']);
+			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) . " $taskelapsed $indent";
+			$msg = '[' . $notice['module'] . '] ' . $notice['notice'];
+			if ($notice['data'] != '') {
+				$linesep = "\n                " . $indent;
+				$len = 16 + ($notice['depth']);
+				$output .= wordwrap(str_replace("\n", $linesep, $msg . ': ' . $notice['data']), max(31, $linelength - $len), $linesep) . "\n";
+			}
+			else $output .= $msg . "\n";
+		}
+			
 	  return $output;
 	}
 
-	public function debug_tickhandler() {
-		static $lasttime = 0;
-		static $lastfunc = '(start)';
-
-		if (!$lasttime) {
-			$lasttime = microtime(true);
-			$this->prof_func[$lastfunc] = array('count' => 1, 'time' => 0);
-		}
-
-		$trace = debug_backtrace();
-		if (count($trace) > 1) {
-			$time = microtime(true);
-			$func = $trace[1]['function'];
-			if (isset($trace[1]['class'])) $func = $trace[1]['class'] . "::$func";
-			$this->prof_func[$lastfunc]['time'] += ($time - $lasttime);
-			if ($func != $lastfunc) {
-				if (!isset($this->prof_func[$func]))
-					$this->prof_func[$func] = array('count' => 0, 'time' => 0);
-				$this->prof_func[$func]['count']++;
-			}
-			$lasttime = $time;
-			$lastfunc = $func;
-		}
-	}
-	
 	public function debug_errorhandler($err, $errstr='', $errfile='', $errline='')
 	// designed as a custom error handler - it logs it into the debug notices as
 	// a notice, unless it's a fatal error.
 	{
-		if (is_object($err))
-		{
+		static $errortypes = array(
+			E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parse Error',
+			E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning',
+			E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning',
+			E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
+			E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
+			8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
+			);
+
+		if (is_object($err)) {
 			$errortype = get_class($err);
 			$errcode = $err->getCode();
 			if ($errcode) $errortype .= " (code $errcode)";
@@ -281,19 +227,10 @@ class debug
 			$errline = $err->getLine();
 			$backtrace = $err->getTrace();
 		}
-		else
-		{
+		else {
 			// the following also allows suppressing errors with @ sign
 			if (!($err & error_reporting())) return;
 
-			$errortypes = array(
-				E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parse Error',
-				E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning',
-				E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning',
-				E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
-				E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
-				8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
-				);
 			$errortype = (isset($errortypes[$err])) ? $errortypes[$err] : 'Unknown Error';		
 			$backtrace = debug_backtrace();
 			foreach ($backtrace as $id => $row)
