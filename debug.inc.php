@@ -62,13 +62,11 @@ class debug
 	// data is further information about this notice such as the arguments
 	// errlog should be set to true to always show this in an error report
 	{
-		$time = !$this->debugmode ? null : microtime(true) - $this->starttime;
-
 		$this->notices[++$this->noticeid] = array(
 			'module' => $module,
 			'notice' => $notice,
 			'data' => strlen($data) > 8192 ? substr($data, 0, 8192 - 16) . ' ... (truncated)' : $data,
-			'elapsed' => $time,
+			'elapsed' => !$this->debugmode ? null : microtime(true) - $this->starttime,
 			'depth' => $this->depth
 			);
 
