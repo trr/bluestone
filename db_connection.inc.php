@@ -200,8 +200,7 @@ class db_connection
 		return $this->statement->rowCount();
 	}
 	
-	public function free_result()
-	{
+	public function free_result() {
 		if (!$this->statement) throw new Exception('No database statement open');
 
 		$this->statement->closeCursor();
@@ -217,47 +216,27 @@ class db_connection
 		$this->prefix = preg_replace('/[^a-z0-9A-Z$_\x80-\xFF]+/', '', $prefix);	
 	}
 	
-	public function get_prefix()
-	{
+	public function get_prefix() {
 		return $this->prefix;
 	}
 	
-	public function get_error()
-	{
+	public function get_error() {
 		$info = $this->connection->errorInfo();
 		return $info ? $info[2] : null;
 	}
 	
-	public function get_dbtype()
-	{
+	public function get_dbtype() {
 		return $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
 	}
 	
-	public function get_dbversion()
-	{
+	public function get_dbversion() {
 		return $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
 	}
 	
-	private function describe_query($query)
-	{
-		$succ = preg_match('/(?!<#[^\n]*)select|insert|update|delete|replace|alter|create/i', $query, $matches);
-		return $succ ? strtoupper($matches[0]) : null;
+	private function describe_query($query) {
+		return trim(preg_replace('$#.*?\n|set.*|value.*|\'.*|\s+$si', ' ', substr($query, 0, 72))) . '...';
 	}
 
-	/*
-	protected function set_error($errorname, $throw = true)
-	{
-		$this->error = $errorname;
-		if ($mysqlerror = mysql_error())
-		{
-			$succ = preg_match('/Table \'[^\'\s\\\\]+\' doesn\'t exist|(error in your sql )?syntax|unknown column|duplicate( (index|key|entry))?/i', $mysqlerror, $matches);
-			if ($succ) $errorname .= '; Error type: ' . $matches[0];
-		}
-		if ($throw)	trigger_error($errorname, E_USER_ERROR);
-		return false;
-	}
-	*/
-	
 }
 
 ?>
