@@ -98,9 +98,10 @@ class db_connection
 	{
 		if (!$this->connection) return false;
 			
-		if ($this->statement) $this->statement->closeCursor();
-
-		$this->statement = null;
+		if ($this->statement) {
+			$this->statement->closeCursor();
+			$this->statement = null;
+		}
 		$this->connection = null;
 		return true;
 	}
