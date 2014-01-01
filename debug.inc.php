@@ -2,7 +2,7 @@
 
 /*
 	debug - simple debugging aids
-	Copyright (c) 2004, 2011 Thomas Rutter
+	Copyright (c) 2004, 2014 Thomas Rutter
 	
 	This file is part of Bluestone.
 	
@@ -39,6 +39,7 @@ class debug
 {
 	private
 		$notices = array(),
+		$prof_func = array(),
 		$starttime,
 		$tasks = array(),
 		$nexttaskid = 0,
@@ -52,7 +53,11 @@ class debug
 	// to use this as a singleton, use getinstance() instead
 	{
     $this->debugmode = $debugmode;
-		if ($debugmode) $this->starttime = microtime(true);
+		if ($debugmode) {
+			$this->starttime = microtime(true);
+			if (defined('PROFILER') && PROFILER)
+				register_tick_function(array(&$this, 'debug_tickhandler'));
+		}
 		
 		$this->useerrorhandler($useerrorhandler);
   }
@@ -231,8 +236,35 @@ class debug
 			if ($notice['data'] != '') $msg .= ': ' . $notice['data'];
 			$output .= wordwrap(str_replace("\n", "\n                 ", $msg), 61, "\n                 ", true) . "\n";
 		}		
+
+		$output .= var_export($this->prof_func, true);
 		
 	  return $output;
+	}
+
+	public function debug_tickhandler() {
+		static $lasttime = 0;
+		static $lastfunc = '(start)';
+
+		if (!$lasttime) {
+			$lasttime = microtime(true);
+			$this->prof_func[$lastfunc] = array('count' => 1, 'time' => 0);
+		}
+
+		$trace = debug_backtrace();
+		if (count($trace) > 1) {
+			$time = microtime(true);
+			$func = $trace[1]['function'];
+			if (isset($trace[1]['class'])) $func = $trace[1]['class'] . "::$func";
+			$this->prof_func[$lastfunc]['time'] += ($time - $lasttime);
+			if ($func != $lastfunc) {
+				if (!isset($this->prof_func[$func]))
+					$this->prof_func[$func] = array('count' => 0, 'time' => 0);
+				$this->prof_func[$func]['count']++;
+			}
+			$lasttime = $time;
+			$lastfunc = $func;
+		}
 	}
 	
 	public function debug_errorhandler($err, $errstr='', $errfile='', $errline='')
