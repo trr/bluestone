@@ -92,12 +92,9 @@ class debug
 	{
 		if (!isset($this->notices[$noticeid])) return false;
 
-		$time = !$this->debugmode ? null : microtime(true) - $this->starttime;
-		
 		if ($this->debugmode) {
-			$time = microtime(true) - $this->starttime;
 			$this->notices[$noticeid]['taskelapsed'] = 
-				$time - $this->notices[$noticeid]['elapsed'];
+				microtime(true) - $this->starttime - $this->notices[$noticeid]['elapsed'];
 		}
 		if ($this->depth) $this->depth--;
 	}
