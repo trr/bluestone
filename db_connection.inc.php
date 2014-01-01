@@ -76,6 +76,11 @@ class db_connection
 			("mysql:" . implode(';', $opts)) :
 			($dbsettings['dsn'] . ($opts ? ";".implode(';',$opts) : ''));
 
+		if (class_exists('debug')) {
+			$this->debug = &debug::getinstance();
+			$taskid = $this->debug->starttask('db_connection', 'Database connect');
+		}
+
 		// according to PDO, errors connecting always throw exceptions
 		$this->connection = new PDO(
 			$dsn,
@@ -84,8 +89,7 @@ class db_connection
 
 		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-		if (class_exists('debug'))
-			$this->debug = &debug::getinstance();
+		if ($this->debug) $this->debug->endtask($taskid);
 	}
 	
 	public function close()
