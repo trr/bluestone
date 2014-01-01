@@ -60,10 +60,11 @@ class db_connection
 	//  'prefix' => table name prefix of connection - optional, defaults to ''
 	//  'charset' => charset of connection (eg 'utf8') - optional, default set by mysql?
 	{
-		if (!class_exists('PDO')) throw new Exception('PHP does not appear to have PDO extension enabled');
-		
-		if (isset($dbsettings['prefix'])) {
-			$this->set_prefix($dbsettings['prefix']);
+		if (isset($dbsettings['prefix']) && $dbsettings['prefix'] != '') {
+			// prefixes may now only contain the characters a-z, 0-9, A-Z, $, _ and unicode
+			if (!preg_match('/^[a-zA-Z0-9$_0x80-0xff]+$/', $dbsettings['prefix'])) 
+				throw new Exception('Invalid prefix');
+			$this->prefix = $dbsettings['prefix'];
 		}
 
 		$opts = array();
@@ -75,17 +76,13 @@ class db_connection
 			("mysql:" . implode(';', $opts)) :
 			($dbsettings['dsn'] . ($opts ? ";".implode(';',$opts) : ''));
 
+		// according to PDO, errors connecting always throw exceptions
 		$this->connection = new PDO(
 			$dsn,
 			isset($dbsettings['user']) ? $dbsettings['user'] : null,
 			isset($dbsettings['pass']) ? $dbsettings['pass'] : null);
 
-		if (!$this->connection)
-			throw new Exception('Failed to connect to database');
-		else {
-			$this->connection->setAttribute(PDO::ATTR_ERRMODE,
-				PDO::ERRMODE_EXCEPTION);
-		}
+		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 		if (class_exists('debug'))
 			$this->debug = &debug::getinstance();
@@ -95,8 +92,7 @@ class db_connection
 	// closes the database connection.
 	// returns false if there was no connection, true otherwise
 	{
-		if (!$this->connection)
-			return false;
+		if (!$this->connection) return false;
 			
 		if ($this->statement) {
 			$this->statement->closeCursor();
@@ -121,10 +117,8 @@ class db_connection
 		if ($this->debug)
 			$taskid = $this->debug->starttask('db_connection', 'Database query', $this->describe_query($query));
 
-		if ($this->statement) {
+		if ($this->statement)
 			$this->statement->closeCursor();
-			$this->statement = null;
-		}
 
 		if (func_num_args() > 1) {
 			$params = is_array(func_get_arg(1)) ? func_get_arg(1) :
@@ -139,10 +133,6 @@ class db_connection
 			$this->statement = $this->connection->query($query);
 		}
 
-		if (!$this->statement) {
-			throw new Exception("Database query failed");
-		}
-
 		if ($this->debug) $this->debug->endtask($taskid);
 
 		return $this->statement ? true : false;
@@ -153,8 +143,6 @@ class db_connection
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
 	{
-		if (!$this->connection) throw new Exception('No database connection');
-
 		// call query() with same arguments
 		$result = call_user_func_array(array($this, "query"), func_get_args());
 
@@ -163,11 +151,8 @@ class db_connection
 			$this->statement->closeCursor();
 			$this->statement = null;
 		}
-		else {
-			throw new Exception('Database query failed');
-		}
 
-		return $result ? ($arr ? $arr : false) : false;
+		return $arr;
 	}
 
 	public function begintransaction() {
@@ -210,10 +195,10 @@ class db_connection
 	
 	public function set_prefix($prefix)
 	// prefixes may now only contain the characters a-z, 0-9, A-Z, $, _ and unicode
-	// this is unlikely to affect anyone in normal circumstances and provides
-	// a bit of extra security when the prefix is placed unescaped into a query
 	{
-		$this->prefix = preg_replace('/[^a-z0-9A-Z$_\x80-\xFF]+/', '', $prefix);	
+		if (!preg_match('/^[a-zA-Z0-9$_0x80-0xff]+$/', $dbsettings['prefix'])) 
+			throw new Exception('Invalid prefix');
+		$this->prefix = $dbsettings['prefix'];
 	}
 	
 	public function get_prefix() {
