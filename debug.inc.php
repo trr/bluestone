@@ -71,10 +71,11 @@ class debug
 			);
 
 		// control size of debug log (don't allow it to grow indefinitely, as this is a memory leak
-		if ($this->noticeid > 251)
-			unset($this->notices[$this->noticeid - 250]);
-		elseif ($this->noticeid == 251)
-			$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null);
+		if ($this->noticeid > 250) {
+			if ($this->noticeid > 251) unset($this->notices[$this->noticeid - 250]);
+			else // if this->noticeid == 251
+				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null);
+		}
 
 		return $this->noticeid;
 	}
@@ -185,14 +186,16 @@ class debug
 		$output = '';
 
     foreach ($this->notices as $notice) {
-			$taskelapsed = !empty($notice['taskelapsed']) ? str_pad(number_format($notice['taskelapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) : '       ';
+			$taskelapsed = !empty($notice['taskelapsed']) ?
+				str_pad(number_format($notice['taskelapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) : '       ';
 			$indent = str_repeat('  ', $notice['depth']);
 			$output .= str_pad(number_format($notice['elapsed'] * 1000, 2), 7, ' ', STR_PAD_LEFT) . " $taskelapsed $indent";
 			$msg = '[' . $notice['module'] . '] ' . $notice['notice'];
 			if ($notice['data'] != '') {
 				$linesep = "\n                " . $indent;
 				$len = 16 + ($notice['depth']);
-				$output .= wordwrap(str_replace("\n", $linesep, $msg . ': ' . $notice['data']), max(31, $linelength - $len), $linesep) . "\n";
+				$output .=
+					wordwrap(str_replace("\n", $linesep, $msg . ': ' . $notice['data']), max(31, $linelength - $len), $linesep) . "\n";
 			}
 			else $output .= $msg . "\n";
 		}
@@ -234,8 +237,6 @@ class debug
 		}
 		$this->notice('debug', 'Error', "$errortype in $errfile line $errline: $errstr", true);
 		$this->logtrace($backtrace);
-		foreach ($this->tasks as $taskid => $task) // set incomplete tasks as errors
-			$this->notices[$task['noticeid']]['errlog'] = true;
 		$this->halt("$errortype in $errfile line $errline: $errstr");
 	}
 
