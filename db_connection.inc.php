@@ -112,8 +112,10 @@ class db_connection
 		return $this->connection ? true : false;
 	}
 
-	public function query($query /*, param, param ... */)
+	public function query($query, $args = array())
 	// tries a query.	returns false if unsuccessful, or result resource if successful
+	// args should be an array of replaced values, but this function also accepts
+	// (deprecated) any number of args as individual arguments
 	{
 		if (!$this->connection) throw new Exception('No database connection');
 
@@ -124,14 +126,12 @@ class db_connection
 		if ($this->statement)
 			$this->statement->closeCursor();
 
-		if (func_num_args() > 1) {
-			$params = is_array(func_get_arg(1)) ? func_get_arg(1) :
-				array_slice(func_get_args(), 1);
-			foreach ($params as $id => $param) {
-				if (is_bool($param)) $params[$id] = $param ? 1 : 0;
-			}
+		if (!is_array($args)) $args = array_slice(func_get_args(), 1);
+
+		if (!empty($args)) {
+			foreach ($args as $id => $arg) if (is_bool($arg)) $args[$id] = !empty($arg);
 			$this->statement = $this->connection->prepare($query);
-			$this->statement->execute($params);
+			$this->statement->execute($args);
 		}
 		else {
 			$this->statement = $this->connection->query($query);
@@ -139,18 +139,18 @@ class db_connection
 
 		if ($this->debug) $this->debug->endtask($taskid);
 
-		return $this->statement ? true : false;
+		return !empty($this->statement);
 	}
 	
-	public function query_single($query /*, param, param ... */)
+	public function query_single($query, $args = array())
 	// tries a query.	fetches the first row and returns it as an array.	
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
 	{
-		// call query() with same arguments
-		$result = call_user_func_array(array($this, "query"), func_get_args());
+		if (!is_array($args)) $args = array_slice(func_get_args(), 1);
 
-		if ($result) {
+		// call query() with same arguments
+		if ($this->query($query, $args)) {
 			$arr = $this->statement->fetch();
 			$this->statement->closeCursor();
 			$this->statement = null;
