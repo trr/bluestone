@@ -88,6 +88,8 @@ class db_connection
 			isset($dbsettings['pass']) ? $dbsettings['pass'] : null);
 
 		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		// always do parameterisation client-side, faster when db latency is the bottleneck
+		$this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
 
 		if ($this->debug) $this->debug->endtask($taskid);
 	}
