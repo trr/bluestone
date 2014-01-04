@@ -111,7 +111,7 @@ class db_connection
 	public function is_connected()
 	// returns true if there is a connection, otherwise false
 	{
-		return $this->connection ? true : false;
+		return !empty($this->connection);
 	}
 
 	public function query($query, $args = array())
