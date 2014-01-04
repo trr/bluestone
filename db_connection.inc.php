@@ -117,8 +117,6 @@ class db_connection
 	// args should be an array of replaced values, but this function also accepts
 	// (deprecated) any number of args as individual arguments
 	{
-		if (!$this->connection) throw new Exception('No database connection');
-
 		// debugging
 		if ($this->debug)
 			$taskid = $this->debug->starttask('db_connection', 'Database query', $this->describe_query($query));
@@ -160,38 +158,29 @@ class db_connection
 	}
 
 	public function begintransaction() {
-		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->beginTransaction();
 	}
 	
 	public function commit() {
-		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->commit();
 	}
 
 	public function rollback() {
-		if (!$this->connection) throw new Exception('No database connection');
 		return $this->connection->rollback();
 	}
 
 	public function fetch_array($numeric = false)
 	{
-		if (!$this->statement) throw new Exception('No database statement open');
-
 		return $this->statement->fetch(!$numeric ? PDO::FETCH_ASSOC : PDO::FETCH_NUM);
 	}
 	
 	public function affected_rows()
 	// return the number of rows affected by the last query like DELETE, UPDATE...
 	{
-		if (!$this->statement) throw new Exception('No database statement open');
-
 		return $this->statement->rowCount();
 	}
 	
 	public function free_result() {
-		if (!$this->statement) throw new Exception('No database statement open');
-
 		$this->statement->closeCursor();
 		$this->statement = null;
 		return true;
