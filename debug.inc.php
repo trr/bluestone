@@ -74,7 +74,7 @@ class debug
 		if ($this->noticeid > 250) {
 			if ($this->noticeid > 251) unset($this->notices[$this->noticeid - 250]);
 			else // if this->noticeid == 251
-				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null);
+				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null, 'depth' => 0);
 		}
 
 		return $this->noticeid;
