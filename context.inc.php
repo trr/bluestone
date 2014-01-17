@@ -32,7 +32,6 @@
 class context
 {
 	private
-		$headers = array(),
 		$lastmodified = 0,
 		$cache_directives = array(),
 		$contentfilename = null,
@@ -158,17 +157,15 @@ class context
 		require(BLUESTONE_DIR . '/system/redirect.inc.php');
 	}
 	
-	public function header($text, $replace = false)
-	// adds a header to output (ie, the response header).
-	{
-		$this->headers[] = array('header' => $text, 'replace' => $replace);
+	public function header($text, $replace = false) {
+	// now just an alias for php header() but with default $replace as false
+		header($text, $replace);
 	}
 	
-	public function setmaxage($age)
+	public function setmaxage($age) {
 	// adds freshness information to cache headers sent - default none (no max-age)
-	{
 		if ($this->max_age === null || $age < $this->max_age)
-			$this->max_age = max(0, $age);
+			$this->max_age = $age;
 	}
 	
 	public function setvary($vary)
@@ -181,13 +178,14 @@ class context
 	// even if the content varies.  this module will not use the last modified time
 	// for conditional responses when vary is enabled.
 	{
-		if ($time > $this->lastmodified && $time > 0) $this->lastmodified = $time;
+		if ($this->lastmodified === null || $time > $this->lastmodified)
+			$this->lastmodified = $time;
 	}
 	
 	public function setcachedirective($data)
 	{
-		if ($data && !isset($this->cache_directives[$data]))
-			$this->cache_directives[$data] = $data;
+		if (!isset($this->cache_directives[$data]))
+			$this->cache_directives[$data] = 1;
 	}
 	
 	public function setstatus($code, $text)
@@ -201,7 +199,6 @@ class context
 	// whether cookies have been sent for its caching mechanism
 	{
 		$this->cookies = true;
-		// this now requires PHP 5.2
 		return setcookie($nam,$val,$exp,$path,$dom,$secu,$httponly);
 	}
 	
@@ -216,12 +213,12 @@ class context
 				// WHICH browsers/UAs don't support multiple Vary? Where did I read this?
 			|| !empty($this->cache_directives['no-cache'])); 
 		
-		if (!$nofresh) $this->cache_directives[] = "max-age={$this->max_age}";
+		if (!$nofresh) $this->cache_directives["max-age={$this->max_age}"] = 1;
 		if ($this->docompress && $this->vary != '*')
 			$this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
 		
 		if (count($this->cache_directives)) 
-			header("Cache-Control: " . implode(', ', $this->cache_directives));
+			header("Cache-Control: " . implode(', ', array_keys($this->cache_directives)));
 		if ($this->vary!='')
 			header("Vary: {$this->vary}");
 		
@@ -321,7 +318,6 @@ class context
 		if ($this->processcache($data, $isfile, $this->contentfilename))
 		{
 			header("Content-Type: {$this->contenttype}");
-			foreach ($this->headers as $val) header($val['header'], $val['replace']);
 			if ($this->debug && preg_match('!text/html;|application/xhtml(?:\+xml)?;!', $this->contenttype))
 			{
 				$this->debug->notice('context', 'Sending output');
