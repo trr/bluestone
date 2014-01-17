@@ -44,7 +44,6 @@ class context
 		$max_age = null,
 		$cookies = false,
 		$sourcearray,
-		$magicquotes,
 		$etag,
 		$method,
 		$debug = null,
@@ -54,15 +53,16 @@ class context
 	function __construct()
 	{
 		$this->sourcearray = array(
-			'REQUEST' => &$_REQUEST,
-			'GET' => &$_GET,
-			'POST' => &$_POST,
-			'COOKIE' => &$_COOKIE,
-			'SERVER' => &$_SERVER
+			'REQUEST' => $_REQUEST,
+			'GET' => $_GET,
+			'POST' => $_POST,
+			'COOKIE' => $_COOKIE,
+			'SERVER' => $_SERVER
 			);
 		if (!empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'POST')
 			$this->check_posterror();
-		$this->magicquotes = get_magic_quotes_gpc();
+
+		if (get_magic_quotes_gpc()) throw new Exception('Magic quotes are enabled; please disable');
 
 		if (class_exists('debug'))
 			$this->debug = &debug::getinstance();
@@ -70,39 +70,18 @@ class context
 	
 	public function load_var($varname, $source = 'GET', $type='string', $options = array())
 	{
-		if (!isset($this->sourcearray[$source][$varname])) return NULL;
+		if (!isset($this->sourcearray[$source][$varname])) return null;
+
 		$val = $this->sourcearray[$source][$varname];
-		
-		if ($this->magicquotes && is_string($val)) $val = stripslashes($val);
-			
-		switch ($type)
-		{
-			case 'name':
-				return (preg_match('/^[\w-]+$/', (string)$val)) ? (string)$val : NULL;
-			case 'int':
-				if (!is_numeric($val)) return NULL;
-				return (int)$val;
-			case 'string':
-				return $val == '' || 
-					preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val) ?
-					(string)$val : $this->utf8_filter((string)$val);
-			case 'yesno':
-				return $val ? true : false;
-			case 'location':
-				return (preg_match('/^[\w.-]+$/', (string)$val)) ? (string)$val : NULL;
-			case 'password':
-				// only printable ascii characters allowed in password, for max compatibility
-				return (preg_match('/^[\x20-\x7E]++$/', (string)$val)) ? (string)$val : NULL;
-			case 'float':
-				if (!is_numeric($val)) return NULL;
-				return (float) $val;
-			case 'alpha':
-				return (preg_match('/^[a-zA-Z]++$/', (string)$val)) ? (string)$val : NULL;
-			case 'alphanumeric':
-				return (preg_match('/^[a-zA-Z0-9]++$/', (string)$val)) ? (string)$val : NULL;
-			case 'email':
-				// todo: filter non-ascii chars, disallow quoted parts anywhere
-				return preg_match('/^
+
+		static $patterns = array(
+			'name' => '/^[\w-]++$/',
+			'location' => '/^[\w.-]++$/',
+			'password' => '/^[\x20-\x7E]++$/', //printable ASCII characters for compatibility
+			'alpha' => '/^[a-zA-Z]++$/',
+			'alphanumeric' => '/^[a-zA-Z0-9]++$/',
+			// todo email: filter non-ascii chars, disallow quoted parts anywhere
+			'email' => '/^
 					(?:
 						[\w!#$%&\'*+\/=?^`{|}~_-]+ |
 						(?<!\.|^)\.(?!\.|@) |
@@ -110,27 +89,51 @@ class context
 					)+
 					@
 					(?: [a-zA-Z0-9] (?:[a-zA-Z0-9-]*[a-zA-Z0-9])? (?:\.(?!$))? )+
-					$/x', (string)$val) ? (string)$val : null;
-			case 'submit':
-			  return true;
-			case 'select':
-				foreach ($options as $optionval) if ($val == $optionval) return $optionval;
-				return NULL;
-			case 'mixed':
-				return $val === '' || (!is_array($val) &&
-					preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val)) ?
-					$val : $this->utf8_filter($val);
-		}
-		return NULL;
+					$/x',
+			);
+
+		if ($type === 'string') 
+			if ($val === '') return '';
+			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
+				return $val;
+			else return $this->utf8_filter($val);
+
+		if (isset($patterns[$type])) 
+			if (is_string($val) && preg_match($patterns[$type], $val)) return $val;
+			else return null;
+
+		if ($type === 'int') 
+			if (is_numeric($val)) return (int)$val;
+			else return null;
+
+		if ($type === 'yesno') return !empty($val);
+
+		if ($type === 'float') 
+			if (is_numeric($val)) return (float)$val;
+			else return null;
+
+		if ($type === 'select')
+			if (in_array($val, $options)) return $val;
+			else return null;
+
+		if ($type === 'mixed') 
+			if ($val === '') return '';
+			elseif (!is_array($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
+				return $val;
+			else return $this->utf8_filter($val, true);
+
+		if ($type === 'submit') return true;
+
+		throw new Exception('Unknown type ' . $type);
 	}
 	
-	private function utf8_filter($val)
+	private function utf8_filter($val, $recursive = false)
 	// filters a string to remove invalid utf-8.  filters recursively
 	// if $val is an array.
 	{
-		if (is_array($val)) {
+		if ($recursive && is_array($val)) {
 			foreach ($val as $vkey => $vval)
-				$val[$vkey] = $this->utf8_filter($vval);
+				$val[$vkey] = $this->utf8_filter($vval, true);
 			return $val;
 		}
 		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
@@ -152,7 +155,7 @@ class context
 	// if subjecttochange and temporary are false, the redirect can be cached by user
 	{
 		$cookies = $this->cookies ? true : false;
-		require_once(BLUESTONE_DIR . '/system/redirect.inc.php');
+		require(BLUESTONE_DIR . '/system/redirect.inc.php');
 	}
 	
 	public function header($text, $replace = false)
