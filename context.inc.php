@@ -32,22 +32,12 @@
 class context
 {
 	private
-		$lastmodified = 0,
-		$cache_directives = array(),
-		$contentfilename = null,
-		$basedir,
 		$statuscode = 200,
 		$statustext = 'OK',
-		$vary = '',
 		$contenttype = 'text/html; charset=utf-8',
-		$max_age = null,
 		$cookies = false,
 		$sourcearray,
-		$etag,
-		$method,
-		$debug = null,
-		$length,
-		$docompress;
+		$debug = null;
 
 	function __construct()
 	{
@@ -62,6 +52,8 @@ class context
 			$this->check_posterror();
 
 		if (get_magic_quotes_gpc()) throw new Exception('Magic quotes are enabled; please disable');
+
+		header_remove('X-Powered-By');
 
 		if (class_exists('debug'))
 			$this->debug = &debug::getinstance();
@@ -117,8 +109,9 @@ class context
 
 		if ($type === 'mixed') 
 			if ($val === '') return '';
-			elseif (!is_array($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
+			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
 				return $val;
+			elseif (!is_array($val)) return $val;
 			else return $this->utf8_filter($val, true);
 
 		if ($type === 'submit') return true;
@@ -162,34 +155,8 @@ class context
 		header($text, $replace);
 	}
 	
-	public function setmaxage($age) {
-	// adds freshness information to cache headers sent - default none (no max-age)
-		if ($this->max_age === null || $age < $this->max_age)
-			$this->max_age = $age;
-	}
-	
-	public function setvary($vary)
-	{
-		$this->vary = $vary;
-	}
-	
-	public function setlastmodified($time)
-	// unlike http modified, you are allowed to set and check a last modified time
-	// even if the content varies.  this module will not use the last modified time
-	// for conditional responses when vary is enabled.
-	{
-		if ($this->lastmodified === null || $time > $this->lastmodified)
-			$this->lastmodified = $time;
-	}
-	
-	public function setcachedirective($data)
-	{
-		if (!isset($this->cache_directives[$data]))
-			$this->cache_directives[$data] = 1;
-	}
-	
-	public function setstatus($code, $text)
-	{
+	public function setstatus($code, $text) {
+		header("HTTP/1.1 $code $text");
 		$this->statuscode = $code;
 		$this->statustext = $text;
 	}
@@ -201,201 +168,108 @@ class context
 		$this->cookies = true;
 		return setcookie($nam,$val,$exp,$path,$dom,$secu,$httponly);
 	}
-	
-	private function processcache($data, $isfile, $filename)
-	{
-		$addr = $this->load_var('SERVER_ADDR', 'SERVER', 'location');
-		$ua = $this->load_var('HTTP_USER_AGENT', 'SERVER', 'string');
-		
-		$nofresh = ($this->max_age === null
-			|| ($addr=='127.0.0.1' && preg_match('!Firefox/!', $ua)) //firefox localhost issues	
-			|| $this->vary=='*' || (strpos($this->vary, ',') !== false) // common intolerance of multiple vary
-				// WHICH browsers/UAs don't support multiple Vary? Where did I read this?
-			|| !empty($this->cache_directives['no-cache'])); 
-		
-		if (!$nofresh) $this->cache_directives["max-age={$this->max_age}"] = 1;
-		if ($this->docompress && $this->vary != '*')
-			$this->vary=($this->vary=='' ? 'Accept-Encoding' : "{$this->vary}, Accept-Encoding");
-		
-		if (count($this->cache_directives)) 
-			header("Cache-Control: " . implode(', ', array_keys($this->cache_directives)));
-		if ($this->vary!='')
-			header("Vary: {$this->vary}");
-		
-		$this->etag = null;
-	
-		if ($this->statuscode == 200 && !$this->cookies
-			&& $this->method == 'GET' || $this->method == 'HEAD')
-		// there is debate about whether you can set cookies along with not modified
-		// but some versions of apache 2 (at least) won't allow it, so we don't
-		{
-			// etag
-			if (!$isfile)
-				$this->etag = rtrim(strtr(base64_encode(md5($data,true).$this->docompress),'+/','-_'),'=');
-			else
-				$this->etag = rtrim(strtr(base64_encode(md5(
-					$filename.filemtime($filename).':'.filesize($filename),true).$this->docompress),'+/','-_'),'=');
 
-			header("ETag: \"{$this->etag}\"");
+	public function handleetag($etag) {
+	// returns true if the etag is matched (and we should not output any body)
+	// if you intend to return a status code other than "200 OK" you must call
+	// setstatus() prior to this
+
+		if ($this->statuscode == 200) {
+			header('ETag: ' . $etag);
+
 			$ifnonematch = $this->load_var('HTTP_IF_NONE_MATCH', 'SERVER', 'string');
-			if ($ifnonematch=='*' || strpos($ifnonematch, '"'.$this->etag.'"')!==false)
-			{
-				header('HTTP/1.1 304 Not Modified');
-				return false;
-			}
-			
-			// last modified
-			if ($this->lastmodified && $this->vary=='' && !$ifnonematch)
-			{
-				if ($ifmodifiedsince = $this->load_var('HTTP_IF_MODIFIED_SINCE', 'SERVER', 'string'))
-				{
-					list($ifmodifiedsince) = explode(';', $ifmodifiedsince);
-					$modifiedsincetime = strtotime($ifmodifiedsince);
-					if ($modifiedsincetime >= $this->lastmodified)
-					{
-						header('HTTP/1.1 304 Not Modified');
-						return false;
-					}
-				}
-				header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $this->lastmodified) . ' GMT'); //no lastmod if 304
+			if ($ifnonematch=='*' || strpos($ifnonematch, '"'.$etag.'"')!==false) {
+				$this->setstatus(304, "Not Modified");
+				return true;
 			}
 		}
-		else $this->etag === null;
-		
-		if ($this->statuscode<299 && $this->statuscode>=200 && (
-			(($ifmatch = $this->load_var('HTTP_IF_MATCH', 'SERVER', 'string'))!==null
-			&& strpos($ifmatch, '"' . $this->etag . '"')===false)
-			|| (($ifunmodified = $this->load_var('HTTP_IF_UNMODIFIED_SINCE', 'SERVER', 'string'))!==null
-			&& (!$this->lastmodified || $this->lastmodified > strtotime($ifunmodified)))
-			))
-		{
+
+		// todo we should return 412 for if-match even when no etag is specified
+		if ($this->statuscode < 299 && $this->statuscode >= 200 && (
+			(($ifmatch = $this->load_var('HTTP_IF_MATCH', 'SERVER', 'string')) !== null &&
+			strpos($ifmatch, '"' . $etag . '"') === false))) {
+
+			header('HTTP/1.1 412 Precondition Failed');
+			return true;
+		}
+
+		return false;
+	}
+
+	public function handlelastmodified($lastmodified) {
+	// returns true if the response is not modified (and we should not output any body)
+	// if you intend to return a status code other than "200 OK" you must call
+	// setstatus() prior to this
+
+		if ($this->statuscode == 200) {
+			if ($ifmodifiedsince = $this->load_var('HTTP_IF_MODIFIED_SINCE', 'SERVER', 'string')) {
+				list($ifmodifiedsince) = explode(';', $ifmodifiedsince);
+				$modifiedsincetime = strtotime($ifmodifiedsince);
+				if ($lastmodified <= $modifiedsincetime) {
+					$this->setstatus(304, "Not Modified");
+					return true;
+				}
+			}
+			header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $lastmodified) . ' GMT'); //no lastmod if 304
+		}
+
+		// todo we should return 412 for if-unmodified-since even when no etag is specified
+		if ($this->statuscode < 299 && $this->statuscode >= 200 && (
+			(($ifunmodified = $this->load_var('HTTP_IF_UNMODIFIED_SINCE', 'SERVER', 'string')) !== null &&
+			$lastmodified > strtotime($ifunmodified)))) {
+
 			header('HTTP/1.1 412 Precondition Failed');
 			return false;
 		}
-		
-		return true;
+		return false;
 	}
-	
-	private function processgzip()
-	{
- 		if (!extension_loaded('zlib')) return false;
-		$acceptencoding = $this->load_var('HTTP_ACCEPT_ENCODING', 'SERVER', 'string');
-		if (empty($acceptencoding)) return false;
-		if (!preg_match('#^(text/|application/(xht|xml|postsc|mswo|excel|rtf|x-tar|json|javas|atom|rss|rdf)|image/(bmp|tif))#i', $this->contenttype))
-			return false;
-		return preg_match('/(?<=^|\b)gzip($|\b)/i', $acceptencoding);
+		
+	public function setcacheheaders($ttl = null, $vary = array(), $directives = array()) {
+	// if lastmodified or etag are set, this function also handles conditional HTTP requests and returns false
+	// if no body needs to be send
+	// if you intend to send any cookies the setcookie() method MUST be called prior to this
+
+		$method = $this->load_var('REQUEST_METHOD', 'SERVER', 'name');
+		$getmethod = $method === 'GET' || $method === 'HEAD';
+
+		// can we output freshness info
+		// for now we don't set cacheability if there are cookies in the response.  We could add
+		// no-cache=set-cookie but support for this may be poor
+		if ($ttl > 0 && $getmethod && !$this->cookies && empty($vary['*']) && 
+			empty($directives['no-cache']) && empty($directives['no-store'])) {
+			
+			// firefox localhost issues
+			$addr = $this->load_var('SERVER_ADDR', 'SERVER', 'location');
+			if ($addr !== '127.0.0.1' && strpos($this->load_var('HTTP_USER_AGENT', 'SERVER', 'string'), 'Firefox/') === false) {
+				$directives['max-age' . (int)$ttl] = true;
+			}
+		}
+
+		// output cache headers
+		if (count($directives)) header('Cache-Control: ' . implode(', ', array_keys(array_filter($directives))));
+		if (!empty($vary)) header('Vary: ' . implode(', ', array_keys(array_filter($vary))));
 	}
 	
 	public function setcontenttype($contenttype)
 	// you should define the character set, where applicable, like this
 	// 'text/plain; charset=utf-8'
 	{
+		header('Content-Type: ' . $contenttype);
 		$this->contenttype = $contenttype;
 	}
 	
-	public function setcontentfilename($filename, $basedir)
-	// setting a filename here will cause dooutput to output data from this file
-	// rather than the data parameter sent to it.
-	// basedir is required; using it properly ensures that the $filename is from
-	// within that basedir.  it's important
-	{
-		if ($basedir == '' || $basedir == '/') trigger_error('Invalid basedir', E_USER_ERROR);
-		$this->contentfilename = $filename;
-		$this->basedir = $basedir;
-	}
-	
-	public function dooutput($data, $gzipcompress = true)
-	{
-		for ($i = ob_get_level(); $i > 0; $i--) @ob_end_clean();
-		$isfile = $this->contentfilename === null 
-			? false : file_exists($this->contentfilename);
-		$this->method = $this->load_var('REQUEST_METHOD', 'SERVER', 'name');
-		header("HTTP/1.1 $this->statuscode $this->statustext");
-			
-		$this->docompress = ($gzipcompress && !$isfile) ? $this->processgzip() : false;
-		
-		header_remove('X-Powered-By');
-		if ($this->processcache($data, $isfile, $this->contentfilename))
-		{
-			header("Content-Type: {$this->contenttype}");
-			if ($this->debug && preg_match('!text/html;|application/xhtml(?:\+xml)?;!', $this->contenttype))
-			{
-				$this->debug->notice('context', 'Sending output');
-				$debugmessages = $this->debug->getnoticestext();
-				$debugmessages = str_replace('--', '==', $debugmessages);
-				$data .= "\n<!-- Debug messages:\n\n$debugmessages\n-->";
-			}
-			if ($this->docompress)
-			{
-				$data = gzencode($data, 1);
-				
-				header('Content-Encoding: gzip');
-				ini_set('zlib.output_compression', 'Off');
-			}
-			
-			$this->length = $isfile ? filesize($this->contentfilename) : strlen($data);
-			
-			// resuming support
-			if ($this->length >= 32768) header('Accept-Ranges: bytes');
-			if (!empty($_SERVER['HTTP_RANGE']))
-			{
-				require_once(BLUESTONE_DIR . '/httpresume.inc.php');
-				$httpresume = 
-					new httpresume($this->length, $this->etag, $this->lastmodified, $this->vary, $this->contenttype);
-				$ranges = $httpresume->getranges();	
-				if ($ranges) $httpresume->sendheaders();		
-			} 
-			else $ranges = null;
-			
-			if ($ranges===null) header("Content-Length: {$this->length}");
-			
-			if ($this->method != 'HEAD')
-			{
-				if ($isfile)
-				{
-					// trying to secure file serving: setting a base directory
-					$oldbasedir = ini_get('open_basedir');
-					ini_set('open_basedir', $this->basedir);
-					$file = fopen($this->contentfilename, 'rb');
-				}
-				if (is_array($ranges)) foreach ($ranges as $range)
-				{
-					list($low, $high, $boundary, $trailer) = $range;
-					$len = 1 + $high - $low;
-					if ($boundary !== null) echo $boundary;
-					if ($isfile) $this->file_echo($file, $low, $len);
-						else echo substr($data, $low, $len);
-					if ($trailer !== null) echo $trailer;
-				}
-				elseif ($isfile) $this->file_echo($file);
-					else echo $data;
-					
-				if ($isfile) 
-				{
-					fclose($file);
-					ini_set('open_basedir', $oldbasedir);
-				}
-			}
+	public function enablegzip() {
+	// enables gzip compression based on the content type specified in setcontenttype and on
+	// whether the client supports it
+	// if you intend to send a content-type other than the default (text/html, etc) you MUST call
+	// the setcontenttype() method prior to this
+		if (preg_match('#^(?:text/|application/(?:xht|xml|postsc|mswo|excel|rtf|x-tar|json|javas|x-javas|atom|ecma|rss|rdf)|image/(?:bmp|tif))#i', $this->contenttype)) {
+			if (headers_sent()) throw new Exception('Too late to gzip compress - headers already sent');
+			ini_set('zlib.output_compression', '1');
+			ini_set('zlib.output_compression_level', '1');
 		}
-		flush();
-		unset($data);
 	}
-	
-	public function file_echo($file, $start = null, $len = null)
-	{
-		if (!$file) trigger_error('Not a valid file resource', E_USER_ERROR);
-		if ($start !== null) fseek($file, $start);
-		for ($bytesread=0; ($len===null||$bytesread<$len) && !feof($file);)
-		{
-			$fetch = $len===null ? 1048576 : min(1048576, $len-$bytesread);
-			$data = fread($file, $fetch);
-			$bytesread += strlen($data);
-			echo $data;
-			flush();
-		}
-		unset($data);
-	}
-	
+
 	public function fatal_error($name='', $details='')
 	// halts the script and displays an error message.  this is only to be used when
 	// the error is absolutely unavoidable and beyond user's control
@@ -411,8 +285,6 @@ class context
 		if (!isset($instance)) $instance = new context(); // no & in a singtleton
 		return $instance;
 	}
-
-	// private
 
 }
 
