@@ -44,7 +44,10 @@ class utf8_string
 
 	function __construct($string = NULL)
 	{
-		$this->string = $string;
+		if (is_string($string))
+			$this->string = $string;
+		else
+			$this->string = (string)$string;
 	}
 	
 	public function getstring()
