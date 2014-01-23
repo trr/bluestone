@@ -225,8 +225,6 @@ class context
 	}
 		
 	public function setcacheheaders($ttl = null, $vary = array(), $directives = array()) {
-	// if lastmodified or etag are set, this function also handles conditional HTTP requests and returns false
-	// if no body needs to be send
 	// if you intend to send any cookies the setcookie() method MUST be called prior to this
 
 		$method = $this->load_var('REQUEST_METHOD', 'SERVER', 'name');
@@ -241,7 +239,7 @@ class context
 			// firefox localhost issues
 			$addr = $this->load_var('SERVER_ADDR', 'SERVER', 'location');
 			if ($addr !== '127.0.0.1' && strpos($this->load_var('HTTP_USER_AGENT', 'SERVER', 'string'), 'Firefox/') === false) {
-				$directives['max-age' . (int)$ttl] = true;
+				$directives['max-age=' . (int)$ttl] = true;
 			}
 		}
 
