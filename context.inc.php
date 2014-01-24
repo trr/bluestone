@@ -256,18 +256,6 @@ class context
 		$this->contenttype = $contenttype;
 	}
 	
-	public function enablegzip() {
-	// enables gzip compression based on the content type specified in setcontenttype and on
-	// whether the client supports it
-	// if you intend to send a content-type other than the default (text/html, etc) you MUST call
-	// the setcontenttype() method prior to this
-		if (preg_match('#^(?:text/|application/(?:xht|xml|postsc|mswo|excel|rtf|x-tar|json|javas|x-javas|atom|ecma|rss|rdf)|image/(?:bmp|tif))#i', $this->contenttype)) {
-			if (headers_sent()) throw new Exception('Too late to gzip compress - headers already sent');
-			ini_set('zlib.output_compression', '1');
-			ini_set('zlib.output_compression_level', '1');
-		}
-	}
-
 	public function fatal_error($name='', $details='')
 	// halts the script and displays an error message.  this is only to be used when
 	// the error is absolutely unavoidable and beyond user's control

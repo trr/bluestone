@@ -53,7 +53,7 @@ if ($temporary || $subjecttochange) header('Cache-Control: no-cache');
 $destination = htmlspecialchars($destination);
 $destslash = addslashes($destination);
 
-$data = <<<DOCBOUNDARY
+echo <<<DOCBOUNDARY
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <title>Page redirect</title><meta http-equiv="refresh" content="2;url=$destination">
@@ -63,15 +63,6 @@ $data = <<<DOCBOUNDARY
 You can go to the new location <a href="$destination">here</a>.
 DOCBOUNDARY;
 
-if ((!defined('GZIP_OUTPUT_COMPRESSION') || GZIP_OUTPUT_COMPRESSION==true)
-	&& preg_match('/(?<=^|\b)gzip($|\b)/i', $acceptencoding))
-{
-	header('Content-Encoding: gzip');
-	ini_set('zlib.output_compression', 'Off');
-	$data = gzencode($data, 1);
-}
-header('Content-Length: ' . strlen($data));
-echo $data;
 exit;
 
 ?>
