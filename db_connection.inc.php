@@ -90,6 +90,7 @@ class db_connection
 		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		// always do parameterisation client-side, faster when db latency is the bottleneck
 		$this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+		$this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
 		if ($this->debug) $this->debug->endtask($taskid);
 	}
