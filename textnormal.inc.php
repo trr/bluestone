@@ -39,7 +39,8 @@ class textnormal
 {
 	private
 		$utf8_string,
-		$webchars = false;
+		$webchars = false,
+		$apostrophe = "'";
 
 	function __construct($string = NULL)
 	// can accept a plain string or utf8_string object
@@ -59,6 +60,14 @@ class textnormal
 	{
 		$this->webchars = $webchars ? true : false;
 	}	
+
+	public function setapostrophe($apos)
+	// when normalising or splitting on words, sets what character various types of apostrophes
+	// should be converted to.  Default is an ascii apostrophe.  You could also set this to an
+	// empty string to strip them.
+	{
+		$this->apostrophe = $apos;
+	}
 
 	public function normal($letters = true, $space = true, $dashes = true, $punc = true)
 	// normalises the string - different types of normalisation are specified by
@@ -100,13 +109,22 @@ class textnormal
 		
 		if ($punc) $replacetable += textnormal::$punccharsascii;
 		if ($punc&& !$isascii) $replacetable += textnormal::$punccharstable;
+
+		// an apostrophe should be stripped if outside a word (as it's probably a quote mark)
+		if ($punc) {
+			$str = preg_replace('/(\'|\xe2\x80\x99)(?!\w)|(?<!\w)(\'|\xe2\x80\x99)/', '', $str);
+
+			// normalise apostrophe
+			if (!$isascii || $this->apostrophe != "'")
+				$replacetable += array("'" => $this->apostrophe, "\xe2\x80\x99" => $this->apostrophe);
+		}
 				
 		$str = strtr($str, $replacetable);
 		
 		// a "." should be stripped, unless it looks like a
 		// decimal point, in which case it should be left
 		if ($punc) $str = preg_replace('/\.(?![0-9]++(?: |$))|(?<![0-9])\./S', '', $str);
-		
+
 		if ($space) return preg_replace('/  +/', ' ', trim($str));
 		return $str;
 	}
@@ -260,12 +278,12 @@ class textnormal
 		// dashes
 		"-"=>'',
 		// other
-		"!"=>'',"\x22"=>'',"#"=>'',"%"=>'',"&"=>'',"'"=>'',"*"=>'',","=>'',/*"."=>'',*/
+		"!"=>'',"\x22"=>'',"#"=>'',"%"=>'',"&"=>'',/*"'"=>'',*/"*"=>'',","=>'',/*"."=>'',*/
 		"/"=>'',":"=>'',";"=>'',"?"=>'',"@"=>'',"\x5c"=>'',
 		);
 	private static $punccharstable = array(
 		// close quotes
-		"\xc2\xbb"=>'',"\xe2\x80\x99"=>'',"\xe2\x80\x9d"=>'',"\xe2\x80\xba"=>'',
+		"\xc2\xbb"=>'',/*"\xe2\x80\x99"=>'',*/"\xe2\x80\x9d"=>'',"\xe2\x80\xba"=>'',
 		// open quotes
 		"\xc2\xab"=>'',"\xe2\x80\x98"=>'',"\xe2\x80\x9b"=>'',"\xe2\x80\x9c"=>'',
 		"\xe2\x80\x9f"=>'',"\xe2\x80\xb9"=>'',
