@@ -101,27 +101,7 @@ class utf8_string
 		if ($convert) return $this->convertfrom1252($replace);
 		return $this->convertfromascii($replace);
 	}
-
-	static function filtermany($input, $replace = '', $convert = true, $allowcontrolcodes = false)
-	// recursively traverses an array and filters all string members in-place
-	// leaves non-string members untouched, and should be relatively fast
-	{
-		if (is_array($input)) foreach ($input as $id => $val) {
-			if (is_string($val)) {
-				if ($val != '' && !preg_match($allowcontrolcodes
-					? '/^[\x00-\x{d7ff}\x{e000}-\x{10ffff}]++$/u'
-					: '/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u',
-					$val)) {
-					$str = new utf8_string($val);
-					$input[$id] = $str->filter($replace, $convert, $allowcontrolcodes);
-				}
-			}
-			elseif (is_array($val))
-				self::filtermany($input[$id]);
-		}
-		return $input;
-	}
-
+	
 	public function tolower()
 	// surprisingly fast
 	// this is about 10 times faster than strtolower for ascii-only strings,
