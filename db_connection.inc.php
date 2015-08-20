@@ -174,7 +174,7 @@ class db_connection
 
 	public function fetch_array($numeric = false)
 	{
-		return $this->statement->fetch(!$numeric ? PDO::FETCH_ASSOC : PDO::FETCH_NUM);
+		return $this->statement->fetch();
 	}
 	
 	public function affected_rows()
