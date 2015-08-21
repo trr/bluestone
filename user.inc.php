@@ -323,9 +323,9 @@ class user
 		$timenow = TIMENOW;
 		$userhash = $persistent ? user::randhash('userhash') : null;
 		$this->db->begintransaction();
-		list($seqid) = $this->db->query_single("
-			SELECT MAX(userlogin_sequenceID) FROM {$this->prefix}userlogin
-			WHERE userlogin_userid=?", $userid);
+		$seqid = $this->db->query_single("
+			SELECT MAX(userlogin_sequenceID) AS seqid FROM {$this->prefix}userlogin
+			WHERE userlogin_userid=?", $userid)['seqid'];
 		$seqid++;
 		
 		$this->db->query("
