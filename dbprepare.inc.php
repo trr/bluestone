@@ -297,8 +297,11 @@ class dbprepare
 		$lastfield = '';
 		foreach ($fields as $fieldname => $val)
 		{
-			if (empty($val[4]) && !empty($valcmp[4]))
-				$val[4] = $this->defaultcollation;
+			// apply defaults
+			if (!isset($val[1])) $val[1] = null;
+			if (!isset($val[2])) $val[2] = false;
+			if (!isset($val[3])) $val[3] = false;
+			if (empty($val[4])) $val[4] = $this->defaultcollation;
 			
 			if (!isset($currentfields[$fieldname]))
 			{
@@ -450,20 +453,22 @@ class dbprepare
 				}
 					
 				// check default
-				if (isset($val[1]) && $val[1] !== $valcmp[1] && !(($valcmp[1] == 0 || $valcmp[1] == '') && !isset($val[1])))   // may cause problem on varchar where current default value
+				if ($val[1] !== $valcmp[1])   // may cause problem on varchar where current default value
 					// is the string '0' and replacement default is null
 				{
+					$olddesc = $valcmp[1] === null ? '(No default)' : '\'' . $valcmp[1] . '\'';
+					$newdesc = $val[1]    === null ? '(No default)' : '\'' . $val[1]    . '\'';
 					if ($suppress)
-						$this->seterror("Need to modify default value of $fieldname in table {$this->prefix}{$table} to '{$val[1]}'", 'suppressed');
+						$this->seterror("Need to modify default value of $fieldname in table {$this->prefix}{$table} to $newdesc", 'suppressed');
 					else
 					{
-						$this->seterror("Table {$this->prefix}{$table}: Column $fieldname: Default value modified from '{$valcmp[1]}' to '{$val[1]}'", 'changed');
+						$this->seterror("Table {$this->prefix}{$table}: Column $fieldname: Default value modified from $olddesc to $newdesc", 'changed');
 						$valnew[1] = $val[1];
 					}
 				}
 				
 				// check nulls allowed
-				if (isset($val[2]) && (boolean)$val[2] != (boolean)$valcmp[2])
+				if ((boolean)$val[2] != (boolean)$valcmp[2])
 				{
 					if (empty($val[2]))
 					{
@@ -483,7 +488,7 @@ class dbprepare
 				}
 				
 				// check auto_increment
-				if (empty($val[3]) != empty($valcmp[3]))
+				if ((boolean)$val[3] != (boolean)$valcmp[3])
 				{
 					$addremove = !empty($val[3]) ? "add" : "remove";
 					$tofrom = !empty($val[3]) ? "to" : "revove";
@@ -515,7 +520,7 @@ class dbprepare
 					}
 				}
 				
-				if ($valnew != $valcmp)
+				if ($valnew !== $valcmp)
 				{
 					$def = $this->getcolumndefinition($fieldname, $valnew);
 					$alterclauses[] = "MODIFY COLUMN $def";
@@ -797,11 +802,15 @@ class dbprepare
 				$default = null;
 		
 			$fields[$row['Field']] = array(
+				// type
 				$row['Type'], 
+				// default value
 				$default,
-				strcasecmp($row['Null'], 'YES') == 0 ? 'allownulls' : false,
+				// allow nulls
+				strcasecmp($row['Null'], 'YES') == 0 ? true : false,
+				// auto increment
 				strpos(strtolower($row['Extra']), 'auto_increment') === false ? false :
-					'auto_increment',
+					true,
 				$row['Collation'],
 				);
 
