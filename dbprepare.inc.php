@@ -44,7 +44,7 @@ class dbprepare
 		$defaultengine,
 		$defaultcollation;
 
-	function __construct(&$db, $defaultengine='MyISAM', $defaultcollation='utf8_general_ci')
+	function __construct(&$db, $defaultengine='MyISAM', $defaultcollation='utf8mb4_unicode_ci')
 	// if you are not using UTF-8, remember to change the default charset and collation
 	{
 		$this->db = &$db;
