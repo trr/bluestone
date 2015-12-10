@@ -133,9 +133,11 @@ class utf8_string
 
 		// first check if the unicode code points look like another layer of utf-8 encoding
 		// (rough check, not exact, but false positives probably low)
-		if (!preg_match('/^([\x00-\x7f]++|[\xc0-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{2,4})++$/u', $this->string)) 
+		if (!preg_match('/^([\x00-\x7f]++|[\xc0-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $this->string))
 			return $this->filter();
 
+		// why not just use utf8_decode?  It doesn't support code points outside latin-1
+		// Also I didn't want to be dependant on mbstring (for this entire class)
 		$str = new utf8_string(strtr($this->string, array(
 			// undo characters that also went through a cp1252-utf8 conversion
 			"\xe2\x82\xac"=>"\x80","\xe2\x80\x9a"=>"\x82","\xc6\x92"=>"\x83","\xe2\x80\x9e"=>"\x84",
@@ -297,7 +299,7 @@ class utf8_string
 			);
 		return strtr($str, $codemap);	
 	}
-		
+
 	private static $lowercharstable = array(
 		// case folding set by TRUT, not very comprehensive
 		"\xc3\x80"=>"\xc3\xa0","\xc3\x81"=>"\xc3\xa1","\xc3\x82"=>"\xc3\xa2",
