@@ -85,7 +85,7 @@ class context
 
 		if ($type === 'string') 
 			if ($val === '') return '';
-			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
+			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $val)) // opt
 				return $val;
 			else return $this->utf8_filter($val);
 
@@ -109,7 +109,7 @@ class context
 
 		if ($type === 'mixed') 
 			if ($val === '') return '';
-			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u', $val))
+			elseif (is_string($val) && preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $val)) // opt
 				return $val;
 			elseif (!is_array($val)) return $val;
 			else return $this->utf8_filter($val, true);
@@ -129,8 +129,7 @@ class context
 			return $val;
 		}
 		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
-		$str = new utf8_string($val);
-		return $str->filter();
+		return (new utf8_string($val))->filter();
 	}
 	
 	private function check_posterror()
