@@ -59,12 +59,17 @@ class utf8_string
 	public function validate($allowcontrolcodes = false)
 	// returns true if this is a valid utf-8 string, false otherwise.  
 	// if allowcontrolcodes is false (default), then most C0 codes below 0x20, as
-	// well as C1 codes 127-159, will be denied - recommend false for html/xml
+	// well as C1 codes 127-159, and Unicode non-characters, will be denied - recommend false for html/xml
 	{
-		return $this->string=='' || preg_match($allowcontrolcodes
-			? '/^[\x00-\x{d7ff}\x{e000}-\x{10ffff}]++$/u'
-			: '/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u',
-			$this->string);
+		return ($this->string=='' || 
+			($allowcontrolcodes ? preg_match('/^.*$/su', $this->string) :
+			(preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string) || preg_match(
+				'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
+				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
+				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
+				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
+				'\x{100000}-\x{10fffd}]++$/u', $this->string)
+				)));
 	}
 	
 	public function filter($replace = '', $convert = true, $allowcontrolcodes = false)
@@ -74,10 +79,17 @@ class utf8_string
 	// is false) or iso-8859-1/cp-1252 (otherwise) and converted thusly to utf-8
 	{
 		// make sure this returns very fast if it is valid already
-		if ($this->string=='' || preg_match($allowcontrolcodes
-			? '/^[\x00-\x{d7ff}\x{e000}-\x{10ffff}]++$/u'
-			: '/^[\x20-\x7e\x0a\x09\x0d\x{a0}-\x{d7ff}\x{e000}-\x{10ffff}]++$/u',
-			$this->string)) return $this->string;
+		// control code x85 valid in XML but banned elsewhere eg HTML5... banned here
+		if ($this->string=='' || 
+			($allowcontrolcodes ? preg_match('/^.*$/su', $this->string) :
+			(preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string) || preg_match(
+				'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
+				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
+				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
+				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
+				'\x{100000}-\x{10fffd}]++$/u', $this->string)
+				)))
+			return $this->string;
 		
 		// strip out control codes if they are the only reason it wouldn't validate
 		if (!$allowcontrolcodes 
@@ -96,6 +108,25 @@ class utf8_string
 				"\xc2\x94"=>"\0","\xc2\x95"=>"\0","\xc2\x96"=>"\0","\xc2\x97"=>"\0",
 				"\xc2\x98"=>"\0","\xc2\x99"=>"\0","\xc2\x9a"=>"\0","\xc2\x9b"=>"\0",
 				"\xc2\x9c"=>"\0","\xc2\x9d"=>"\0","\xc2\x9e"=>"\0","\xc2\x9f"=>"\0",
+				// non-chars fdd0-fdef
+				"\xef\xb7\x90"=>"\0","\xef\xb7\x91"=>"\0","\xef\xb7\x92"=>"\0","\xef\xb7\x93"=>"\0",
+				"\xef\xb7\x94"=>"\0","\xef\xb7\x95"=>"\0","\xef\xb7\x96"=>"\0","\xef\xb7\x97"=>"\0",
+				"\xef\xb7\x98"=>"\0","\xef\xb7\x99"=>"\0","\xef\xb7\x9a"=>"\0","\xef\xb7\x9b"=>"\0",
+				"\xef\xb7\x9c"=>"\0","\xef\xb7\x9d"=>"\0","\xef\xb7\x9e"=>"\0","\xef\xb7\x9f"=>"\0",
+				"\xef\xb7\xa0"=>"\0","\xef\xb7\xa1"=>"\0","\xef\xb7\xa2"=>"\0","\xef\xb7\xa3"=>"\0",
+				"\xef\xb7\xa4"=>"\0","\xef\xb7\xa5"=>"\0","\xef\xb7\xa6"=>"\0","\xef\xb7\xa7"=>"\0",
+				"\xef\xb7\xa8"=>"\0","\xef\xb7\xa9"=>"\0","\xef\xb7\xaa"=>"\0","\xef\xb7\xab"=>"\0",
+				"\xef\xb7\xac"=>"\0","\xef\xb7\xad"=>"\0","\xef\xb7\xae"=>"\0","\xef\xb7\xaf"=>"\0",
+				// non chars ending in fffe-ffff (including 1fffe-1ffff, 2fffe-2ffff, and so on)
+				"\xef\xbf\xbe"=>"\0","\xef\xbf\xbf"=>"\0","\xf0\x9f\xbf\xbe"=>"\0","\xf0\x9f\xbf\xbf"=>"\0",
+				"\xf0\xaf\xbf\xbe"=>"\0","\xf0\xaf\xbf\xbf"=>"\0","\xf0\xbf\xbf\xbe"=>"\0","\xf0\xbf\xbf\xbf"=>"\0",
+				"\xf1\x8f\xbf\xbe"=>"\0","\xf1\x8f\xbf\xbf"=>"\0","\xf1\x9f\xbf\xbe"=>"\0","\xf1\x9f\xbf\xbf"=>"\0",
+				"\xf1\xaf\xbf\xbe"=>"\0","\xf1\xaf\xbf\xbf"=>"\0","\xf1\xbf\xbf\xbe"=>"\0","\xf1\xbf\xbf\xbf"=>"\0",
+				"\xf2\x8f\xbf\xbe"=>"\0","\xf2\x8f\xbf\xbf"=>"\0","\xf2\x9f\xbf\xbe"=>"\0","\xf2\x9f\xbf\xbf"=>"\0",
+				"\xf2\xaf\xbf\xbe"=>"\0","\xf2\xaf\xbf\xbf"=>"\0","\xf2\xbf\xbf\xbe"=>"\0","\xf2\xbf\xbf\xbf"=>"\0",
+				"\xf3\x8f\xbf\xbe"=>"\0","\xf3\x8f\xbf\xbf"=>"\0","\xf3\x9f\xbf\xbe"=>"\0","\xf3\x9f\xbf\xbf"=>"\0",
+				"\xf3\xaf\xbf\xbe"=>"\0","\xf3\xaf\xbf\xbf"=>"\0","\xf3\xbf\xbf\xbe"=>"\0","\xf3\xbf\xbf\xbf"=>"\0",
+				"\xf4\x8f\xbf\xbe"=>"\0","\xf4\x8f\xbf\xbf"=>"\0",
 				)));
 		
 		if ($convert) return $this->convertfrom1252($replace);
