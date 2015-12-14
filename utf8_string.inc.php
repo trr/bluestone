@@ -79,7 +79,7 @@ class utf8_string
 	// is false) or iso-8859-1/cp-1252 (otherwise) and converted thusly to utf-8
 	{
 		// opt: if it's UTF8 AND only contains BMP, return now
-		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string))
+		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]*$/u', $this->string))
 			return $this->string;
 
 		if (!$allowcontrolcodes) {
