@@ -78,59 +78,55 @@ class utf8_string
 	// they are stripped out.  Otherwise, it is assumed to be either ascii (if convert
 	// is false) or iso-8859-1/cp-1252 (otherwise) and converted thusly to utf-8
 	{
-		// make sure this returns very fast if it is valid already
-		// control code x85 valid in XML but banned elsewhere eg HTML5... banned here
-		if ($this->string=='' || 
-			($allowcontrolcodes ? preg_match('/^.*$/su', $this->string) :
-			(preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string) || preg_match(
-				'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
+		// opt: if it's UTF8 AND only contains BMP, return now
+		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string))
+			return $this->string;
+
+		if (!$allowcontrolcodes) {
+			// opt: if it's valid when including other planes, return now
+			if (preg_match(
+					'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
+					'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
+					'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
+					'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
+					'\x{100000}-\x{10fffd}]++$/u', $this->string))
+				return $this->string;
+			
+			// if it is valid UTF8 with control codes/noncharacters, filter
+			if (preg_match('/./u', $this->string)) {
+				$str = $this->string;
+
+				// do we have code points in C1 that would be valid CP-1252?
+				if (strpos($str, "\xc2") !== false) {
+					$str = str_replace(array(
+						"\xc2\x80","\xc2\x82","\xc2\x83","\xc2\x84","\xc2\x85","\xc2\x86",
+						"\xc2\x87","\xc2\x88","\xc2\x89","\xc2\x8a","\xc2\x8b","\xc2\x8c",
+						"\xc2\x8e","\xc2\x91","\xc2\x92","\xc2\x93","\xc2\x94","\xc2\x95",
+						"\xc2\x96","\xc2\x97","\xc2\x98","\xc2\x99","\xc2\x9a","\xc2\x9b",
+						"\xc2\x9c","\xc2\x9e","\xc2\x9f",
+						),array(
+						"\xe2\x82\xac","\xe2\x80\x9a","\xc6\x92","\xe2\x80\x9e","\xe2\x80\xa6","\xe2\x80\xa0",
+						"\xe2\x80\xa1","\xcb\x86","\xe2\x80\xb0","\xc5\xa0","\xe2\x80\xb9","\xc5\x92",
+						"\xc5\xbd","\xe2\x80\x98","\xe2\x80\x99","\xe2\x80\x9c","\xe2\x80\x9d","\xe2\x80\xa2",
+						"\xe2\x80\x93","\xe2\x80\x94","\xcb\x9c","\xe2\x84\xa2","\xc5\xa1","\xe2\x80\xba",
+						"\xc5\x93","\xc5\xbe","\xc5\xb8",
+						),$str);
+				}
+
+				return preg_replace(
+				'/[^\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
 				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
 				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
 				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
-				'\x{100000}-\x{10fffd}]++$/u', $this->string)
-				)))
+				'\x{100000}-\x{10fffd}]/u', preg_quote($replace), $str);
+			}
+		}
+		else if (preg_match('/./u', $this->string)) {
 			return $this->string;
-		
-		// strip out control codes if they are the only reason it wouldn't validate
-		if (!$allowcontrolcodes 
-			&& $this->validate(true))
-			return str_replace("\0", $replace, strtr(strtr($this->string, 
-				"\x1\x2\x3\x4\x5\x6\x7\x8\xb\xc\xe\xf\x10\x11\x12\x13\x14\x15\x16".
-				"\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f", 
-				"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0".
-				"\0\0\0\0\0\0\0\0\0\0\0\0\0\0"),
-				array(
-				"\xc2\x80"=>"\0","\xc2\x81"=>"\0","\xc2\x82"=>"\0","\xc2\x83"=>"\0",
-				"\xc2\x84"=>"\0","\xc2\x85"=>"\0","\xc2\x86"=>"\0","\xc2\x87"=>"\0",
-				"\xc2\x88"=>"\0","\xc2\x89"=>"\0","\xc2\x8a"=>"\0","\xc2\x8b"=>"\0",
-				"\xc2\x8c"=>"\0","\xc2\x8d"=>"\0","\xc2\x8e"=>"\0","\xc2\x8f"=>"\0",
-				"\xc2\x90"=>"\0","\xc2\x91"=>"\0","\xc2\x92"=>"\0","\xc2\x93"=>"\0",
-				"\xc2\x94"=>"\0","\xc2\x95"=>"\0","\xc2\x96"=>"\0","\xc2\x97"=>"\0",
-				"\xc2\x98"=>"\0","\xc2\x99"=>"\0","\xc2\x9a"=>"\0","\xc2\x9b"=>"\0",
-				"\xc2\x9c"=>"\0","\xc2\x9d"=>"\0","\xc2\x9e"=>"\0","\xc2\x9f"=>"\0",
-				// non-chars fdd0-fdef
-				"\xef\xb7\x90"=>"\0","\xef\xb7\x91"=>"\0","\xef\xb7\x92"=>"\0","\xef\xb7\x93"=>"\0",
-				"\xef\xb7\x94"=>"\0","\xef\xb7\x95"=>"\0","\xef\xb7\x96"=>"\0","\xef\xb7\x97"=>"\0",
-				"\xef\xb7\x98"=>"\0","\xef\xb7\x99"=>"\0","\xef\xb7\x9a"=>"\0","\xef\xb7\x9b"=>"\0",
-				"\xef\xb7\x9c"=>"\0","\xef\xb7\x9d"=>"\0","\xef\xb7\x9e"=>"\0","\xef\xb7\x9f"=>"\0",
-				"\xef\xb7\xa0"=>"\0","\xef\xb7\xa1"=>"\0","\xef\xb7\xa2"=>"\0","\xef\xb7\xa3"=>"\0",
-				"\xef\xb7\xa4"=>"\0","\xef\xb7\xa5"=>"\0","\xef\xb7\xa6"=>"\0","\xef\xb7\xa7"=>"\0",
-				"\xef\xb7\xa8"=>"\0","\xef\xb7\xa9"=>"\0","\xef\xb7\xaa"=>"\0","\xef\xb7\xab"=>"\0",
-				"\xef\xb7\xac"=>"\0","\xef\xb7\xad"=>"\0","\xef\xb7\xae"=>"\0","\xef\xb7\xaf"=>"\0",
-				// non chars ending in fffe-ffff (including 1fffe-1ffff, 2fffe-2ffff, and so on)
-				"\xef\xbf\xbe"=>"\0","\xef\xbf\xbf"=>"\0","\xf0\x9f\xbf\xbe"=>"\0","\xf0\x9f\xbf\xbf"=>"\0",
-				"\xf0\xaf\xbf\xbe"=>"\0","\xf0\xaf\xbf\xbf"=>"\0","\xf0\xbf\xbf\xbe"=>"\0","\xf0\xbf\xbf\xbf"=>"\0",
-				"\xf1\x8f\xbf\xbe"=>"\0","\xf1\x8f\xbf\xbf"=>"\0","\xf1\x9f\xbf\xbe"=>"\0","\xf1\x9f\xbf\xbf"=>"\0",
-				"\xf1\xaf\xbf\xbe"=>"\0","\xf1\xaf\xbf\xbf"=>"\0","\xf1\xbf\xbf\xbe"=>"\0","\xf1\xbf\xbf\xbf"=>"\0",
-				"\xf2\x8f\xbf\xbe"=>"\0","\xf2\x8f\xbf\xbf"=>"\0","\xf2\x9f\xbf\xbe"=>"\0","\xf2\x9f\xbf\xbf"=>"\0",
-				"\xf2\xaf\xbf\xbe"=>"\0","\xf2\xaf\xbf\xbf"=>"\0","\xf2\xbf\xbf\xbe"=>"\0","\xf2\xbf\xbf\xbf"=>"\0",
-				"\xf3\x8f\xbf\xbe"=>"\0","\xf3\x8f\xbf\xbf"=>"\0","\xf3\x9f\xbf\xbe"=>"\0","\xf3\x9f\xbf\xbf"=>"\0",
-				"\xf3\xaf\xbf\xbe"=>"\0","\xf3\xaf\xbf\xbf"=>"\0","\xf3\xbf\xbf\xbe"=>"\0","\xf3\xbf\xbf\xbf"=>"\0",
-				"\xf4\x8f\xbf\xbe"=>"\0","\xf4\x8f\xbf\xbf"=>"\0",
-				)));
-		
-		if ($convert) return $this->convertfrom1252($replace);
-		return $this->convertfromascii($replace);
+		}
+
+		if ($convert) return (new utf8_string(utf8_encode($this->string)))->filter($replace, false, $allowcontrolcodes);
+		return preg_replace('/[^\x20-\x7e\x09\x0a\x0d]/', preg_quote($replace), $this->string);
 	}
 	
 	public function tolower()
