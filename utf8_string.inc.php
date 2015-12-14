@@ -155,7 +155,10 @@ class utf8_string
 	// if the double-encoding also did a cp1252 to utf-8 conversion then
 	// some characters may have been lost due to gaps in cp1252
 	{
-		if ($this->string == '') return '';
+		// opt: if it's UTF-8 and contained within a selection of characters that
+		// couldn't be used in double-encoded UTF-8 on their own
+		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{c0}-\x{151}]*$/u', $this->string))
+			return $this->string;
 
 		// first check if the unicode code points look like another layer of utf-8 encoding
 		// (rough check, not exact, but false positives probably low)
