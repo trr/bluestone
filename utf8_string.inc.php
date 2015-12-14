@@ -159,7 +159,7 @@ class utf8_string
 
 		// first check if the unicode code points look like another layer of utf-8 encoding
 		// (rough check, not exact, but false positives probably low)
-		if (!preg_match('/^([\x00-\x7f]++|[\xc0-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $this->string))
+		if (!preg_match('/^(?:[\x00-\x7f]++|[\xc2-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $this->string))
 			return $this->filter();
 
 		// why not just use utf8_decode?  It doesn't support code points outside latin-1
