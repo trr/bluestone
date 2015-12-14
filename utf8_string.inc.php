@@ -278,15 +278,24 @@ class utf8_string
 }
 
 /*
-$utf8 = new utf8_string('something');
+//echo preg_match('//u', "ABC\xc9");
+//smp:F0 9F 98 90 
+//bad1252: C2 89
+//control: 05 or C2 81
+//notutf8: 80 c2
+
+echo bin2hex(utf8_encode("\x80\xc2"));
+
+$utf8 = new utf8_string("The quick brown fox jumps over the lazy dog");
 
 $microtime = microtime(true);
 
 for ($i = 0; $i < 10000; $i++) {
-	$result = $utf8->filter();
+	$result = $utf8->filter("\xef\xbf\xbd");
 }
 
-echo "\n" . (microtime(true) - $microtime);
+echo "\n" . (microtime(true) - $microtime) * 1000;
+echo "\n" . $result;
  */
 
 ?>
