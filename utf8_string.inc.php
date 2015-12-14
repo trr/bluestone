@@ -61,15 +61,14 @@ class utf8_string
 	// if allowcontrolcodes is false (default), then most C0 codes below 0x20, as
 	// well as C1 codes 127-159, and Unicode non-characters, will be denied - recommend false for html/xml
 	{
-		return ($this->string=='' || 
-			($allowcontrolcodes ? preg_match('/^.*$/su', $this->string) :
-			(preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]++$/u', $this->string) || preg_match(
+		return preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]*$/u', $this->string) ||
+			(!$allowcontrolcodes ? preg_match(
 				'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
 				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
 				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
 				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
-				'\x{100000}-\x{10fffd}]++$/u', $this->string)
-				)));
+				'\x{100000}-\x{10fffd}]++$/u', $this->string) :
+			preg_match('/./u', $this->string));
 	}
 	
 	public function filter($replace = '', $convert = true, $allowcontrolcodes = false)
