@@ -33,118 +33,67 @@
 // the ascii range, so the overhead on most english and european content will be
 // low.
 
-// 20090309: 
-// words() has been removed from this class; it can now be found in the
-// normaltext() class
+// deprecated interface kept for compatibility
+// note: tolower() was rarely used, it will be moved to textnormal class
+// validate() was virtually never used, it's gone
+class utf8_string {
+	private $str;
+	function __construct($str = '') { $this->str = (string)$str; }
+	public function getstring() { return $this->str; }
+	public function filter($a = '', $b = true, $c = false) { return utf8::filter($this->str); }
+	public function convertdoubleutf8() { return utf8::convertdoubleutf8($this->str); }
+}
 
-class utf8_string
-{
-	private
-		$string;
+class utf8 {
 
-	function __construct($string = NULL)
-	{
-		if (is_string($string))
-			$this->string = $string;
-		else
-			$this->string = (string)$string;
+	public static function filter($str) {
+	// filters the string ensuring it's valid UTF-8
+	// If already valid, is returned unmodified very quickly - otherwise:
+	// - converts incorrectly-converted CP-1252 codepoints to their Unicode equivalent
+	// - strips out control characters (except /r,/n,/t), non-characters and reserved codepoints
+	// - If it's not UTF-8 encoded, treats it as ASCII/ISO-8859-1/CP-1252 and converts
+	//   accordingly
+	// This is best used when you are fairly sure the string is UTF-8, and you just want
+	// to guard against encoding errors in input.
+
+		if (preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $str))
+			return $str;
+
+		return self::repair($str);
 	}
-	
-	public function getstring()
-	// returns string value without any conversions
-	{
-		return $this->string;
-	}
 
-	public function validate($allowcontrolcodes = false)
-	// returns true if this is a valid utf-8 string, false otherwise.  
-	// if allowcontrolcodes is false (default), then most C0 codes below 0x20, as
-	// well as C1 codes 127-159, and Unicode non-characters, will be denied - recommend false for html/xml
-	{
-		return preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]*$/u', $this->string) ||
-			(!$allowcontrolcodes ? preg_match(
-				'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
-				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
-				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
-				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
-				'\x{100000}-\x{10fffd}]++$/u', $this->string) :
-			preg_match('/./u', $this->string));
-	}
-	
-	public function filter($replace = '', $convert = true, $allowcontrolcodes = false)
-	// filters the string.  if it is valid utf-8, then it is returned unmodified.  If it
-	// would be valid but contains control codes and allowcontrolcodes are false,
-	// they are stripped out.  Otherwise, it is assumed to be either ascii (if convert
-	// is false) or iso-8859-1/cp-1252 (otherwise) and converted thusly to utf-8
-	{
-		// opt: if it's UTF8 AND only contains BMP, return now
-		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}]*$/u', $this->string))
-			return $this->string;
+	public static function repair($str) {
+	// Identical result to filter($str) except that this is optimised for when you already know
+	// (or are fairly sure) the string is NOT valid already.
+	// This omits the initial check of validity - all strings assumed invalid
 
-		if (!$allowcontrolcodes) {
-			// opt: if it's valid when including other planes, return now
-			if (preg_match(
-					'/^[\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
-					'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
-					'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
-					'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
-					'\x{100000}-\x{10fffd}]++$/u', $this->string))
-				return $this->string;
-			
+		if (preg_match('/./u', $str)) {
 			// if it is valid UTF8 with control codes/noncharacters, filter
-			if (preg_match('/./u', $this->string)) {
-				$str = $this->string;
 
-				// do we have code points in C1 that would be valid CP-1252?
-				if (strpos($str, "\xc2") !== false) {
-					$str = str_replace(array(
-						"\xc2\x80","\xc2\x82","\xc2\x83","\xc2\x84","\xc2\x85","\xc2\x86",
-						"\xc2\x87","\xc2\x88","\xc2\x89","\xc2\x8a","\xc2\x8b","\xc2\x8c",
-						"\xc2\x8e","\xc2\x91","\xc2\x92","\xc2\x93","\xc2\x94","\xc2\x95",
-						"\xc2\x96","\xc2\x97","\xc2\x98","\xc2\x99","\xc2\x9a","\xc2\x9b",
-						"\xc2\x9c","\xc2\x9e","\xc2\x9f",
-						),array(
-						"\xe2\x82\xac","\xe2\x80\x9a","\xc6\x92","\xe2\x80\x9e","\xe2\x80\xa6","\xe2\x80\xa0",
-						"\xe2\x80\xa1","\xcb\x86","\xe2\x80\xb0","\xc5\xa0","\xe2\x80\xb9","\xc5\x92",
-						"\xc5\xbd","\xe2\x80\x98","\xe2\x80\x99","\xe2\x80\x9c","\xe2\x80\x9d","\xe2\x80\xa2",
-						"\xe2\x80\x93","\xe2\x80\x94","\xcb\x9c","\xe2\x84\xa2","\xc5\xa1","\xe2\x80\xba",
-						"\xc5\x93","\xc5\xbe","\xc5\xb8",
-						),$str);
-				}
-
-				return preg_replace(
-				'/[^\x20-\x7e\x09\x0a\x0d\x{a0}-\x{fdcf}\x{fdf0}-\x{fffd}' . 
-				'\x{10000}-\x{1fffd}\x{20000}-\x{2fffd}\x{30000}-\x{3fffd}\x{40000}-\x{4fffd}\x{50000}-\x{5fffd}' .
-				'\x{60000}-\x{6fffd}\x{70000}-\x{7fffd}\x{80000}-\x{8fffd}\x{90000}-\x{9fffd}\x{a0000}-\x{afffd}' .
-				'\x{b0000}-\x{bfffd}\x{c0000}-\x{cfffd}\x{d0000}-\x{dfffd}\x{e0000}-\x{efffd}\x{f0000}-\x{ffffd}' .
-				'\x{100000}-\x{10fffd}]/u', preg_quote($replace), $str);
+			// do we have code points in C1 that would be valid CP-1252?
+			if (strpos($str, "\xc2") !== false) {
+				$str = str_replace(array(
+					"\xc2\x80","\xc2\x82","\xc2\x83","\xc2\x84","\xc2\x85","\xc2\x86",
+					"\xc2\x87","\xc2\x88","\xc2\x89","\xc2\x8a","\xc2\x8b","\xc2\x8c",
+					"\xc2\x8e","\xc2\x91","\xc2\x92","\xc2\x93","\xc2\x94","\xc2\x95",
+					"\xc2\x96","\xc2\x97","\xc2\x98","\xc2\x99","\xc2\x9a","\xc2\x9b",
+					"\xc2\x9c","\xc2\x9e","\xc2\x9f",
+					),array(
+					"\xe2\x82\xac","\xe2\x80\x9a","\xc6\x92","\xe2\x80\x9e","\xe2\x80\xa6","\xe2\x80\xa0",
+					"\xe2\x80\xa1","\xcb\x86","\xe2\x80\xb0","\xc5\xa0","\xe2\x80\xb9","\xc5\x92",
+					"\xc5\xbd","\xe2\x80\x98","\xe2\x80\x99","\xe2\x80\x9c","\xe2\x80\x9d","\xe2\x80\xa2",
+					"\xe2\x80\x93","\xe2\x80\x94","\xcb\x9c","\xe2\x84\xa2","\xc5\xa1","\xe2\x80\xba",
+					"\xc5\x93","\xc5\xbe","\xc5\xb8",
+					),$str);
 			}
-		}
-		else if (preg_match('/./u', $this->string)) {
-			return $this->string;
+
+			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]/u', "\xef\xbf\xbd", $str);
 		}
 
-		if ($convert) return (new utf8_string(utf8_encode($this->string)))->filter($replace, false, $allowcontrolcodes);
-		return preg_replace('/[^\x20-\x7e\x09\x0a\x0d]/', preg_quote($replace), $this->string);
+		return self::filter(utf8_encode($str));
 	}
 	
-	public function tolower()
-	// surprisingly fast
-	// this is about 10 times faster than strtolower for ascii-only strings,
-	//     (long strings; strtolower seems to do better with very short strings)
-	// and only about 1.2 times slower than it for unicode
-	// note: only selected unicode chars below 0x24f are translated, may need amendments
-	{
-		// optimise - use ascii tolower when characters \xc3 through \xc9 not present
-		if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
-			return strtr($this->string,
-				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-
-		return strtr(strtr($this->string, utf8_string::$lowercharstable),
-			'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-	}
-
-	public function convertdoubleutf8()
+	public static function convertdoubleutf8($str)
 	// detects whether the string looks like improperly double-encoded utf-8
 	// with or without a cp1252-utf8 conversion and if it does, try to convert 
 	// it back.
@@ -157,17 +106,17 @@ class utf8_string
 	{
 		// opt: if it's UTF-8 and contained within a selection of characters that
 		// couldn't be used in double-encoded UTF-8 on their own
-		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{c0}-\x{151}]*$/u', $this->string))
-			return $this->string;
+		if (preg_match('/^[\x20-\x7e\x09\x0a\x0d\x{c0}-\x{151}]*$/u', $str))
+			return $str;
 
 		// first check if the unicode code points look like another layer of utf-8 encoding
 		// (rough check, not exact, but false positives probably low)
-		if (!preg_match('/^(?:[\x00-\x7f]++|[\xc2-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $this->string))
+		if (!preg_match('/^(?:[\x00-\x7f]++|[\xc2-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $str))
 			return $this->filter();
 
 		// why not just use utf8_decode?  It doesn't support code points outside latin-1
 		// Also I didn't want to be dependant on mbstring (for this entire class)
-		$str = new utf8_string(strtr($this->string, array(
+		return self::filter(strtr($str, array(
 			// undo characters that also went through a cp1252-utf8 conversion
 			"\xe2\x82\xac"=>"\x80","\xe2\x80\x9a"=>"\x82","\xc6\x92"=>"\x83","\xe2\x80\x9e"=>"\x84",
 			"\xe2\x80\xa6"=>"\x85","\xe2\x80\xa0"=>"\x86","\xe2\x80\xa1"=>"\x87","\xcb\x86"=>"\x88",
@@ -210,73 +159,8 @@ class utf8_string
 			"\xc3\xb8"=>"\xf8","\xc3\xb9"=>"\xf9","\xc3\xba"=>"\xfa","\xc3\xbb"=>"\xfb",
 			"\xc3\xbc"=>"\xfc","\xc3\xbd"=>"\xfd","\xc3\xbe"=>"\xfe","\xc3\xbf"=>"\xff",
 			)));
-
-		return $str->filter();
 	}
 	
-	private static $lowercharstable = array(
-		// case folding set by TRUT, not very comprehensive
-		"\xc3\x80"=>"\xc3\xa0","\xc3\x81"=>"\xc3\xa1","\xc3\x82"=>"\xc3\xa2",
-		"\xc3\x83"=>"\xc3\xa3","\xc3\x84"=>"\xc3\xa4","\xc3\x85"=>"\xc3\xa5",
-		"\xc3\x86"=>"\xc3\xa6","\xc3\x87"=>"\xc3\xa7","\xc3\x88"=>"\xc3\xa8",
-		"\xc3\x89"=>"\xc3\xa9","\xc3\x8a"=>"\xc3\xaa","\xc3\x8b"=>"\xc3\xab",
-		"\xc3\x8c"=>"\xc3\xac","\xc3\x8d"=>"\xc3\xad","\xc3\x8e"=>"\xc3\xae",
-		"\xc3\x8f"=>"\xc3\xaf","\xc3\x90"=>"\xc3\xb0","\xc3\x91"=>"\xc3\xb1",
-		"\xc3\x92"=>"\xc3\xb2","\xc3\x93"=>"\xc3\xb3","\xc3\x94"=>"\xc3\xb4",
-		"\xc3\x95"=>"\xc3\xb5","\xc3\x96"=>"\xc3\xb6","\xc3\x97"=>"\xc3\xb7",
-		"\xc3\x98"=>"\xc3\xb8","\xc3\x99"=>"\xc3\xb9","\xc3\x9a"=>"\xc3\xba",
-		"\xc3\x9b"=>"\xc3\xbb","\xc3\x9c"=>"\xc3\xbc","\xc3\x9d"=>"\xc3\xbd",
-		"\xc3\x9e"=>"\xc3\xbe","\xc4\x80"=>"\xc4\x81","\xc4\x82"=>"\xc4\x83",
-		"\xc4\x84"=>"\xc4\x85","\xc4\x86"=>"\xc4\x87","\xc4\x88"=>"\xc4\x89",
-		"\xc4\x8a"=>"\xc4\x8b","\xc4\x8c"=>"\xc4\x8d","\xc4\x8e"=>"\xc4\x8f",
-		"\xc4\x90"=>"\xc4\x91","\xc4\x92"=>"\xc4\x93","\xc4\x94"=>"\xc4\x95",
-		"\xc4\x96"=>"\xc4\x97","\xc4\x98"=>"\xc4\x99","\xc4\x9a"=>"\xc4\x9b",
-		"\xc4\x9c"=>"\xc4\x9d","\xc4\x9e"=>"\xc4\x9f","\xc4\xa0"=>"\xc4\xa1",
-		"\xc4\xa2"=>"\xc4\xa3","\xc4\xa4"=>"\xc4\xa5","\xc4\xa6"=>"\xc4\xa7",
-		"\xc4\xa8"=>"\xc4\xa9","\xc4\xaa"=>"\xc4\xab","\xc4\xac"=>"\xc4\xad",
-		"\xc4\xae"=>"\xc4\xaf","\xc4\xb0"=>"\xc4\xb1","\xc4\xb2"=>"\xc4\xb3",
-		"\xc4\xb4"=>"\xc4\xb5","\xc4\xb6"=>"\xc4\xb7","\xc4\xb9"=>"\xc4\xba",
-		"\xc4\xbb"=>"\xc4\xbc","\xc4\xbd"=>"\xc4\xbe","\xc4\xbf"=>"\xc5\x80",
-		"\xc5\x81"=>"\xc5\x82","\xc5\x83"=>"\xc5\x84","\xc5\x85"=>"\xc5\x86",
-		"\xc5\x87"=>"\xc5\x88","\xc5\x8a"=>"\xc5\x8b","\xc5\x8c"=>"\xc5\x8d",
-		"\xc5\x8e"=>"\xc5\x8f","\xc5\x90"=>"\xc5\x91","\xc5\x92"=>"\xc5\x93",
-		"\xc5\x94"=>"\xc5\x95","\xc5\x96"=>"\xc5\x97","\xc5\x98"=>"\xc5\x99",
-		"\xc5\x9a"=>"\xc5\x9b","\xc5\x9c"=>"\xc5\x9d","\xc5\x9e"=>"\xc5\x9f",
-		"\xc5\xa0"=>"\xc5\xa1","\xc5\xa2"=>"\xc5\xa3","\xc5\xa4"=>"\xc5\xa5",
-		"\xc5\xa6"=>"\xc5\xa7","\xc5\xa8"=>"\xc5\xa9","\xc5\xaa"=>"\xc5\xab",
-		"\xc5\xac"=>"\xc5\xad","\xc5\xae"=>"\xc5\xaf","\xc5\xb0"=>"\xc5\xb1",
-		"\xc5\xb2"=>"\xc5\xb3","\xc5\xb4"=>"\xc5\xb5","\xc5\xb6"=>"\xc5\xb7",
-		"\xc5\xb8"=>"\xc5\xb9","\xc5\xb9"=>"\xc5\xba","\xc5\xbb"=>"\xc5\xbc",
-		"\xc5\xbd"=>"\xc5\xbe","\xc6\x81"=>"\xc6\x80","\xc6\x82"=>"\xc6\x83",
-		"\xc6\x84"=>"\xc6\x85","\xc6\x87"=>"\xc6\x88","\xc6\x8a"=>"\xc6\x89",
-		"\xc6\x8b"=>"\xc6\x8c","\xc6\x8e"=>"\xc6\x8f","\xc6\x91"=>"\xc6\x92",
-		"\xc6\x98"=>"\xc6\x99","\xc6\x9d"=>"\xc6\x9e","\xc6\xa0"=>"\xc6\xa1",
-		"\xc6\xa2"=>"\xc6\xa3","\xc6\xa4"=>"\xc6\xa5","\xc6\xa7"=>"\xc6\xa8",
-		"\xc6\xaf"=>"\xc6\xb0","\xc6\xb1"=>"\xc6\xb2","\xc6\xb3"=>"\xc6\xb4",
-		"\xc6\xb5"=>"\xc6\xb6","\xc6\xb7"=>"\xc6\xba","\xc6\xb8"=>"\xc6\xb9",
-		"\xc6\xbc"=>"\xc6\xbd","\xc7\x84"=>"\xc7\x86","\xc7\x85"=>"\xc7\x86",
-		"\xc7\x87"=>"\xc7\x89","\xc7\x88"=>"\xc7\x89","\xc7\x8a"=>"\xc7\x8c",
-		"\xc7\x8b"=>"\xc7\x8c","\xc7\x8d"=>"\xc7\x8e","\xc7\x8f"=>"\xc7\x90",
-		"\xc7\x91"=>"\xc7\x92","\xc7\x93"=>"\xc7\x94","\xc7\x95"=>"\xc7\x96",
-		"\xc7\x97"=>"\xc7\x98","\xc7\x99"=>"\xc7\x9a","\xc7\x9b"=>"\xc7\x9c",
-		"\xc7\x9e"=>"\xc7\x9f","\xc7\xa0"=>"\xc7\xa1","\xc7\xa2"=>"\xc7\xa3",
-		"\xc7\xa4"=>"\xc7\xa5","\xc7\xa6"=>"\xc7\xa7","\xc7\xa8"=>"\xc7\xa9",
-		"\xc7\xaa"=>"\xc7\xab","\xc7\xac"=>"\xc7\xad","\xc7\xae"=>"\xc7\xaf",
-		"\xc7\xb1"=>"\xc7\xb3","\xc7\xb2"=>"\xc7\xb3","\xc7\xb4"=>"\xc7\xb5",
-		"\xc7\xb8"=>"\xc7\xb9","\xc7\xba"=>"\xc7\xbb","\xc7\xbc"=>"\xc7\xbd",
-		"\xc7\xbe"=>"\xc7\xbf","\xc8\x80"=>"\xc8\x81","\xc8\x82"=>"\xc8\x83",
-		"\xc8\x84"=>"\xc8\x85","\xc8\x86"=>"\xc8\x87","\xc8\x88"=>"\xc8\x89",
-		"\xc8\x8a"=>"\xc8\x8b","\xc8\x8c"=>"\xc8\x8d","\xc8\x8e"=>"\xc8\x8f",
-		"\xc8\x90"=>"\xc8\x91","\xc8\x92"=>"\xc8\x93","\xc8\x94"=>"\xc8\x95",
-		"\xc8\x96"=>"\xc8\x97","\xc8\x98"=>"\xc8\x99","\xc8\x9a"=>"\xc8\x9b",
-		"\xc8\x9c"=>"\xc8\x9d","\xc8\x9e"=>"\xc8\x9f","\xc8\xa0"=>"\xc8\xa1",
-		"\xc8\xa2"=>"\xc8\xa3","\xc8\xa4"=>"\xc8\xa5","\xc8\xa6"=>"\xc8\xa7",
-		"\xc8\xa8"=>"\xc8\xa9","\xc8\xaa"=>"\xc8\xab","\xc8\xac"=>"\xc8\xad",
-		"\xc8\xae"=>"\xc8\xaf","\xc8\xb0"=>"\xc8\xb1","\xc8\xb2"=>"\xc8\xb3",
-		"\xc8\xbb"=>"\xc8\xbc","\xc9\x81"=>"\xc9\x82","\xc9\x86"=>"\xc9\x87",
-		"\xc9\x88"=>"\xc9\x89","\xc9\x8a"=>"\xc9\x8b","\xc9\x8c"=>"\xc9\x8d",
-		"\xc9\x8e"=>"\xc9\x8f",);
-		
 }
 
 /*
@@ -286,14 +170,12 @@ class utf8_string
 //control: 05 or C2 81
 //notutf8: 80 c2
 
-echo bin2hex(utf8_encode("\x80\xc2"));
-
-$utf8 = new utf8_string("The quick brown fox jumps over the lazy dog");
+$str = "The quick brown fox jumps over the lazy dog";
 
 $microtime = microtime(true);
 
 for ($i = 0; $i < 10000; $i++) {
-	$result = $utf8->filter("\xef\xbf\xbd");
+	$result = utf8::filter($str);
 }
 
 echo "\n" . (microtime(true) - $microtime) * 1000;
