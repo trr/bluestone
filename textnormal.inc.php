@@ -131,7 +131,7 @@ class textnormal
 			if (!$isascii) $replacetable += textnormal::$punccharstable;
 
 			// an apostrophe, dot or period should be stripped if outside a word
-			$str = preg_replace('/([\'.-]|\xe2\x80\x99)(?!\w)|(?<!\w)([\'.-]|\xe2\x80\x99)/', '', $str);
+			$str = preg_replace('/([\'.-]|\xe2\x80\x99)(?!\w)|(?<!\w)([\'.-]|\xe2\x80\x99)/S', '', $str);
 
 			// normalise apostrophe
 			if (!$isascii || $this->apostrophe != "'")
