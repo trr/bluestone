@@ -130,25 +130,15 @@ class textnormal
 		}
 				
 		$str = strtr($str, $replacetable);
-		
-		// a "." should be stripped, unless it looks like a
-		// decimal point, in which case it should be left
-		if ($punc) $str = preg_replace('/\.(?![0-9]++(?: |$))|(?<![0-9])\./S', '', $str);
 
 		if ($space) return preg_replace('/  +/', ' ', trim($str));
 		return $str;
 	}
 	
-	public function words($normaliseletters = false)
-	// split the string into words, stripping out punctuation (but leaving symbols)
-	// does not case fold or normalise characters - should probably do that before
-	// splitting into words if you need it.  
-	// $commaorperiodsplits determines whether "word.word" or "word,word"
-	// without a space should be treated as two words.  Note that slashes or dashes
-	// always split.
-	// returns array of words. pretty fast now, 10MB/s or so.
+	public function words($normaliseletters = false, $dashes = true)
+	// splits the string into words
 	{
-		$str = $this->normal($normaliseletters);
+		$str = $this->normal($normaliseletters, true, $dashes);
 		
 		return explode(' ', $str);
 	}
@@ -286,7 +276,7 @@ class textnormal
 		// closing opening punc
 		")"=>'',"]"=>'',"}"=>'',"("=>'',"["=>'',"\x7b"=>'',
 		// dashes
-		"-"=>'',
+		/*"-"=>'',*/
 		// other
 		"!"=>'',"\x22"=>'',"#"=>'',"%"=>'',"&"=>'',/*"'"=>'',*/"*"=>'',","=>'',/*"."=>'',*/
 		"/"=>'',":"=>'',";"=>'',"?"=>'',"@"=>'',"\x5c"=>'',
