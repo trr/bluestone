@@ -77,25 +77,27 @@ class debug
 				$this->notices[1] = array('module' => 'debug', 'notice' => 'debug log truncated', 'data' => null, 'elapsed' => null, 'depth' => 0);
 		}
 
-		return $this->noticeid;
+		return $this->notices[$this->noticeid];
 	}
 	
 	public function starttask($module, $taskname, $data = NULL) {
 	// returns a unique task id
-		$id = $this->notice($module, $taskname, $data);
+		$this->notice($module, $taskname, $data);
 		$this->depth++;
-		return $id;
+		return $this->noticeid;
 	}
 	
 	public function endtask($noticeid)
 	{
-		if (!isset($this->notices[$noticeid])) return false;
+		if (!isset($this->notices[$noticeid])) throw new Exception('endtask() called with invalid noticeid');
 
 		if ($this->debugmode) {
 			$this->notices[$noticeid]['taskelapsed'] = 
 				microtime(true) - $this->starttime - $this->notices[$noticeid]['elapsed'];
 		}
 		if ($this->depth) $this->depth--;
+
+		return $this->notices[$noticeid];
 	}
 	
 	public function useerrorhandler($useerrorhandler = true)
