@@ -82,8 +82,8 @@ class diff
 		$bmax = strlen($b) - $boff;
 		$max = max($amax, $bmax);
 		$len = strlen($a) + strlen($b);
-		$maxmatchsize = ceil(max(2, sqrt($len)/4, $len/64));
-		$matchsize = $coarse ? min(80, $maxmatchsize>>1) : min(7, $maxmatchsize);
+		$maxmatchsize = (int)ceil(max(2, sqrt($len)/4, $len/64));
+		$matchsize = $coarse ? min(80, (int)($maxmatchsize / 2)) : min(7, $maxmatchsize);
 		$cmplen = $coarse ? 60 : min(4, $matchsize);
 		$pos1 = $pos2 = false;
 		for ($i = $matchsize; $i < $max;)
