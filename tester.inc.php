@@ -41,7 +41,7 @@ class tester
 		$asserts = 0,
 		$passed = true;
 
-	private static
+	protected static
 		$tests = 0,
 		$classes = 0,
 		$errors = 0,
@@ -49,20 +49,15 @@ class tester
 
 	public static function _sdfunc()
 	{
-		self::runincluded();
-		if (!self::$classes) return;
-		self::report();
-	}
-
-	public static function runincluded()
-	{
-		$debug = debug::getinstance(true);
 		$classes = get_declared_classes();
+		$proto = null;
 		foreach ($classes as $classname)
 			if (is_subclass_of($classname, 'tester'))
 		{
-			tester::runclass($classname);
+			if (!$proto) $proto = $classname;
+			$classname::runclass($classname);
 		}
+		if ($proto) $proto::report();
 	}
 
 	public static function runclass($classname)
@@ -79,10 +74,9 @@ class tester
 			try
 			{
 				$obj = new $classname();
-				$obj->$method();
+				$obj->runtest($method);
 				if (!$obj->passed) self::$errors++;
 				self::$asserts_total += $obj->asserts;
-				unset($obj);
 			}
 			catch (Exception $e)
 			{
@@ -91,6 +85,10 @@ class tester
 			self::$tests++;
 		}
 		if ($hastests) self::$classes++;
+	}
+
+	public function runtest($method) {
+		$this->$method();
 	}
 
 	public static function report()
@@ -127,9 +125,9 @@ class tester
 		{
 			if (is_dir($dir . $filename))
 			{
-				if ($recurse) tester::includedir($dir . $filename, true);
+				if ($recurse) self::includedir($dir . $filename, true);
 			}
-			elseif (preg_match('#.\.php[56]?$#i', $filename))
+			elseif (preg_match('#.\.php[57]?$#i', $filename))
 				require_once($dir . $filename);
 		}
 	}
