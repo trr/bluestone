@@ -42,7 +42,6 @@ class tester
 		$passed = true;
 
 	private static
-		$donottest = array('tester'),
 		$tests = 0,
 		$classes = 0,
 		$errors = 0,
@@ -60,8 +59,7 @@ class tester
 		$debug = debug::getinstance(true);
 		$classes = get_declared_classes();
 		foreach ($classes as $classname)
-			if (is_subclass_of($classname, 'tester') 
-				&& !in_array($classname, self::$donottest))
+			if (is_subclass_of($classname, 'tester'))
 		{
 			tester::runclass($classname);
 		}
@@ -73,7 +71,6 @@ class tester
 	// must already have been parsed.
 	{
 		$debug = debug::getinstance(true);
-		if (!is_subclass_of($classname, 'tester') || in_array($classname, self::$donottest)) return;
 		$methods = get_class_methods($classname);
 		$hastests = false;
 		foreach ($methods as $method) if (preg_match('#^test#i', $method))
