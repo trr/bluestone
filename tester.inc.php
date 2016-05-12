@@ -33,6 +33,8 @@ if (!defined('BLUESTONE_DIR'))
 	define('BLUESTONE_DIR', dirname(__FILE__));
 require_once(BLUESTONE_DIR . '/debug.inc.php');
 
+register_shutdown_function(array('tester', '_sdfunc'));
+
 class tester
 {
 	protected
@@ -40,22 +42,11 @@ class tester
 		$passed = true;
 
 	private static
-		$registered = false,
 		$donottest = array('tester'),
 		$tests = 0,
 		$classes = 0,
 		$errors = 0,
 		$asserts_total = 0;
-
-	public static function register()
-	// this is actually called when this file is included.  it registers
-	// a shutdown function which searches for all declared tests classes
-	// and runs them.  to prevent this happening, call tester::noauto()
-	{
-		if (self::$registered) return;
-		register_shutdown_function(array('tester', '_sdfunc'));
-		self::$registered = true;
-	}
 
 	public static function _sdfunc()
 	{
@@ -183,7 +174,5 @@ class tester
 		return true;
 	}
 }
-
-tester::register();
 
 ?>
