@@ -168,6 +168,18 @@ class tester
 		}
 		return true;
 	}
+
+	public static function rand_binary($len = 260) {
+		return openssl_random_pseudo_bytes($len);
+	}
+
+	public static function rand_ascii($len = 260) {
+		return preg_replace('/[^[\x20-\x7e\x0a\x0d\x09]/', ' ', openssl_random_pseudo_bytes($len) & str_repeat("\x7f", $len));
+	}
+
+	public static function rand_utf8($len = 260) {
+		return preg_replace('/[^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]/u', ' ', utf8_encode(openssl_random_pseudo_bytes($len)));
+	}
 }
 
 ?>
