@@ -100,7 +100,7 @@ class textnormal
 			if ($isascii)
 			 $str = strtr($this->string,
 				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-			else $str = strtr(strtr($this->string, self::$lowercharstable),
+			else $str = strtr(strtr($this->string, self::$normalletterstable),
 				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
 		}
 		
