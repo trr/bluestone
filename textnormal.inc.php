@@ -72,16 +72,11 @@ class textnormal
 	// note: only selected unicode chars below 0x24f are translated, may need amendments
 	{
 		// optimise - use ascii tolower when characters \xc3 through \xc9 not present
-		if (strcspn($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9") == strlen($this->string))
-		//if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
+		if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
 			return strtr($this->string,
 				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-		return strtr($this->string, array(
-			'A'=>'a','B'=>'b','C'=>'c','D'=>'d','E'=>'e','F'=>'f','G'=>'g','H'=>'h',
-			'I'=>'i','J'=>'j','K'=>'k','L'=>'l','M'=>'m','N'=>'n','O'=>'o','P'=>'p',
-			'Q'=>'q','R'=>'r','S'=>'s','T'=>'t','U'=>'u','V'=>'v','W'=>'w','X'=>'x','Y'=>'y','Z'=>'z'
-
-			) + self::$lowercharstable);
+		return strtr(strtr($this->string, self::$lowercharstable),
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
 	}
 
 	public function normal($letters = true, $space = true, $dashes = true, $punc = true)
@@ -99,14 +94,14 @@ class textnormal
 		
 		$str = $this->string;
 		
-		$isascii = strcspn($str,"\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4") == strlen($str);
+		$isascii = strtr($str,"\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4", "                                                   ") == $str;
 
 		if ($letters) {
-			$replacetable += array(
-				'A'=>'a','B'=>'b','C'=>'c','D'=>'d','E'=>'e','F'=>'f','G'=>'g','H'=>'h',
-				'I'=>'i','J'=>'j','K'=>'k','L'=>'l','M'=>'m','N'=>'n','O'=>'o','P'=>'p',
-				'Q'=>'q','R'=>'r','S'=>'s','T'=>'t','U'=>'u','V'=>'v','W'=>'w','X'=>'x','Y'=>'y','Z'=>'z');
-			if (!$isascii) $replacetable += self::$normalletterstable;
+			if ($isascii)
+			 $str = strtr($this->string,
+				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+			else $str = strtr(strtr($this->string, self::$lowercharstable),
+				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
 		}
 		
 		if ($this->webchars) $replacetable += array(
