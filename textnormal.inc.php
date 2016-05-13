@@ -72,11 +72,16 @@ class textnormal
 	// note: only selected unicode chars below 0x24f are translated, may need amendments
 	{
 		// optimise - use ascii tolower when characters \xc3 through \xc9 not present
-		if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
+		if (strcspn($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9") == strlen($this->string))
+		//if (strtr($this->string, "\xc3\xc4\xc5\xc6\xc7\xc8\xc9", '       ') == $this->string)
 			return strtr($this->string,
 				'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
-		return strtr(strtr($this->string, self::$lowercharstable),
-			'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+		return strtr($this->string, array(
+			'A'=>'a','B'=>'b','C'=>'c','D'=>'d','E'=>'e','F'=>'f','G'=>'g','H'=>'h',
+			'I'=>'i','J'=>'j','K'=>'k','L'=>'l','M'=>'m','N'=>'n','O'=>'o','P'=>'p',
+			'Q'=>'q','R'=>'r','S'=>'s','T'=>'t','U'=>'u','V'=>'v','W'=>'w','X'=>'x','Y'=>'y','Z'=>'z'
+
+			) + self::$lowercharstable);
 	}
 
 	public function normal($letters = true, $space = true, $dashes = true, $punc = true)
@@ -92,37 +97,41 @@ class textnormal
 	{
 		$replacetable = array();	
 		
-		$str = $letters ? $this->tolower() : $this->string;
+		$str = $this->string;
 		
-		// opt
-		$isascii = strtr($str, 
-			"\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf".
-			"\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf".
-			"\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef".
-			"\xf0\xf1\xf2\xf3\xf4",
-			"                                                   ") == $str;
-			
+		$isascii = strcspn($str,"\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4") == strlen($str);
+
+		if ($letters) {
+			$replacetable += array(
+				'A'=>'a','B'=>'b','C'=>'c','D'=>'d','E'=>'e','F'=>'f','G'=>'g','H'=>'h',
+				'I'=>'i','J'=>'j','K'=>'k','L'=>'l','M'=>'m','N'=>'n','O'=>'o','P'=>'p',
+				'Q'=>'q','R'=>'r','S'=>'s','T'=>'t','U'=>'u','V'=>'v','W'=>'w','X'=>'x','Y'=>'y','Z'=>'z');
+			if (!$isascii) $replacetable += self::$normalletterstable;
+		}
+		
 		if ($this->webchars) $replacetable += array(
 			','=>' ','.'=>' ','&'=>' ','@'=>' ',
 			'$'=>' $ ','+'=>' + ','<'=>' < ','='=>' = ','>'=>' > ','|'=>' | ','~'=>' ~ ','^'=>' ^ ',
 			'`'=>' ` ',
 			);
 			
-		if ($letters && !$isascii) $replacetable += textnormal::$normalletterstable;
-		
-		if ($space) $replacetable += textnormal::$spacecharsascii;
-		if ($space && !$isascii) $replacetable += textnormal::$spacecharstable;
+		if ($space) {
+			$replacetable += textnormal::$spacecharsascii;
+			if (!$isascii) $replacetable += textnormal::$spacecharstable;
+		}
 		
 		// dashes must come after space
-		if ($dashes) $replacetable += textnormal::$dashcharsascii;
-		if ($dashes&& !$isascii) $replacetable += textnormal::$dashcharstable;
+		if ($dashes) {
+			$replacetable += textnormal::$dashcharsascii;
+			if (!$isascii) $replacetable += textnormal::$dashcharstable;
+		}
 		
-		if ($punc) $replacetable += textnormal::$punccharsascii;
-		if ($punc&& !$isascii) $replacetable += textnormal::$punccharstable;
-
-		// an apostrophe should be stripped if outside a word (as it's probably a quote mark)
 		if ($punc) {
-			$str = preg_replace('/(\'|\xe2\x80\x99)(?!\w)|(?<!\w)(\'|\xe2\x80\x99)/', '', $str);
+			$replacetable += textnormal::$punccharsascii;
+			if (!$isascii) $replacetable += textnormal::$punccharstable;
+
+			// an apostrophe, dot or period should be stripped if outside a word
+			$str = preg_replace('/([\'.-]|\xe2\x80\x99)(?!\w)|(?<!\w)([\'.-]|\xe2\x80\x99)/S', '', $str);
 
 			// normalise apostrophe
 			if (!$isascii || $this->apostrophe != "'")
@@ -130,25 +139,15 @@ class textnormal
 		}
 				
 		$str = strtr($str, $replacetable);
-		
-		// a "." should be stripped, unless it looks like a
-		// decimal point, in which case it should be left
-		if ($punc) $str = preg_replace('/\.(?![0-9]++(?: |$))|(?<![0-9])\./S', '', $str);
 
 		if ($space) return preg_replace('/  +/', ' ', trim($str));
 		return $str;
 	}
 	
-	public function words($normaliseletters = false)
-	// split the string into words, stripping out punctuation (but leaving symbols)
-	// does not case fold or normalise characters - should probably do that before
-	// splitting into words if you need it.  
-	// $commaorperiodsplits determines whether "word.word" or "word,word"
-	// without a space should be treated as two words.  Note that slashes or dashes
-	// always split.
-	// returns array of words. pretty fast now, 10MB/s or so.
+	public function words($normaliseletters = false, $dashes = true)
+	// splits the string into words
 	{
-		$str = $this->normal($normaliseletters);
+		$str = $this->normal($normaliseletters, true, $dashes);
 		
 		return explode(' ', $str);
 	}
@@ -175,78 +174,109 @@ class textnormal
 		if ($len <= 9) return (string)($len - 1) . $matches[0];
 		return '9' . (string)($len - 10) . $matches[0];
 	}
+
+	private static $normalletterstable = array(
+		"\xc3\x80"=>"a","\xc3\x81"=>"a","\xc3\x82"=>"a","\xc3\x83"=>"a","\xc3\x84"=>"a",
+		"\xc3\x85"=>"a","\xc3\x86"=>"e","\xc3\x87"=>"c","\xc3\x88"=>"e","\xc3\x89"=>"e",
+		"\xc3\x8a"=>"e","\xc3\x8b"=>"e","\xc3\x8c"=>"i","\xc3\x8d"=>"i","\xc3\x8e"=>"i",
+		"\xc3\x8f"=>"i","\xc3\x90"=>"d","\xc3\x91"=>"n","\xc3\x92"=>"o","\xc3\x93"=>"o",
+		"\xc3\x94"=>"o","\xc3\x95"=>"o","\xc3\x96"=>"o","\xc3\x98"=>"o","\xc3\x99"=>"u",
+		"\xc3\x9a"=>"u","\xc3\x9b"=>"u","\xc3\x9c"=>"u","\xc3\x9d"=>"y","\xc3\x9e"=>"th",
+		"\xc4\x80"=>"a","\xc4\x82"=>"a","\xc4\x84"=>"a","\xc4\x86"=>"c","\xc4\x88"=>"c",
+		"\xc4\x8a"=>"c","\xc4\x8c"=>"c","\xc4\x8e"=>"d","\xc4\x90"=>"d","\xc4\x92"=>"e",
+		"\xc4\x94"=>"e","\xc4\x96"=>"e","\xc4\x98"=>"e","\xc4\x9a"=>"e","\xc4\x9c"=>"g",
+		"\xc4\x9e"=>"g","\xc4\xa0"=>"g","\xc4\xa2"=>"g","\xc4\xa4"=>"h","\xc4\xa6"=>"h",
+		"\xc4\xa8"=>"i","\xc4\xaa"=>"i","\xc4\xac"=>"i","\xc4\xae"=>"i","\xc4\xb0"=>"i",
+		"\xc4\xb2"=>"ij","\xc4\xb4"=>"j","\xc4\xb6"=>"k","\xc4\xb9"=>"l","\xc4\xbb"=>"l",
+		"\xc4\xbd"=>"l","\xc4\xbf"=>"l","\xc5\x81"=>"l","\xc5\x83"=>"n","\xc5\x85"=>"n",
+		"\xc5\x87"=>"n","\xc5\x8a"=>"n","\xc5\x8c"=>"o","\xc5\x8e"=>"o","\xc5\x90"=>"o",
+		"\xc5\x92"=>"oe","\xc5\x94"=>"r","\xc5\x96"=>"r","\xc5\x98"=>"r","\xc5\x9a"=>"s",
+		"\xc5\x9c"=>"s","\xc5\x9e"=>"s","\xc5\xa0"=>"s","\xc5\xa2"=>"t","\xc5\xa4"=>"t",
+		"\xc5\xa6"=>"t","\xc5\xa8"=>"u","\xc5\xaa"=>"u","\xc5\xac"=>"u","\xc5\xae"=>"u",
+		"\xc5\xb0"=>"u","\xc5\xb2"=>"u","\xc5\xb4"=>"w","\xc5\xb6"=>"y","\xc5\xb9"=>"z",
+		"\xc5\xbb"=>"z","\xc5\xbd"=>"z","\xc6\x81"=>"b","\xc6\x82"=>"b","\xc6\x84"=>"b",
+		"\xc6\x87"=>"c","\xc6\x8a"=>"d","\xc6\x8b"=>"d","\xc6\x8e"=>"e","\xc6\x91"=>"f",
+		"\xc6\x98"=>"k","\xc6\x9d"=>"n","\xc6\xa0"=>"o","\xc6\xa2"=>"o","\xc6\xa4"=>"p",
+		"\xc6\xa7"=>"s","\xc6\xaf"=>"u","\xc6\xb1"=>"\xca\x8a","\xc6\xb3"=>"y","\xc6\xb5"=>"z",
+		"\xc6\xb7"=>"z","\xc6\xb8"=>"z","\xc6\xbc"=>"5","\xc7\x84"=>"z","\xc7\x85"=>"z",
+		"\xc7\x87"=>"lj","\xc7\x88"=>"lj","\xc7\x8a"=>"nj","\xc7\x8b"=>"nj","\xc7\x8d"=>"a",
+		"\xc7\x8f"=>"i","\xc7\x91"=>"o","\xc7\x93"=>"u","\xc7\x95"=>"u","\xc7\x97"=>"u",
+		"\xc7\x99"=>"u","\xc7\x9b"=>"u","\xc7\x9e"=>"a","\xc7\xa0"=>"a","\xc7\xa2"=>"e",
+		"\xc7\xa4"=>"g","\xc7\xa6"=>"g","\xc7\xa8"=>"k","\xc7\xaa"=>"o","\xc7\xac"=>"o",
+		"\xc7\xae"=>"s","\xc7\xb1"=>"dz","\xc7\xb2"=>"dz","\xc7\xb4"=>"g","\xc7\xb8"=>"n",
+		"\xc7\xba"=>"a","\xc7\xbc"=>"e","\xc7\xbe"=>"o","\xc8\x80"=>"a","\xc8\x82"=>"a",
+		"\xc8\x84"=>"e","\xc8\x86"=>"e","\xc8\x88"=>"i","\xc8\x8a"=>"i","\xc8\x8c"=>"o",
+		"\xc8\x8e"=>"o","\xc8\x90"=>"r","\xc8\x92"=>"r","\xc8\x94"=>"u","\xc8\x96"=>"u",
+		"\xc8\x98"=>"s","\xc8\x9a"=>"t","\xc8\x9c"=>"y","\xc8\x9e"=>"h","\xc8\xa0"=>"d",
+		"\xc8\xa2"=>"ou","\xc8\xa4"=>"z","\xc8\xa6"=>"a","\xc8\xa8"=>"e","\xc8\xaa"=>"o",
+		"\xc8\xac"=>"o","\xc8\xae"=>"o","\xc8\xb0"=>"o","\xc8\xb2"=>"y","\xc8\xbb"=>"c",
+		"\xc9\x81"=>"t","\xc9\x86"=>"e","\xc9\x88"=>"j","\xc9\x8a"=>"q","\xc9\x8c"=>"r",
+		"\xc9\x8e"=>"y","\xc3\xdf"=>"ss","\xc3\xa0"=>"a","\xc3\xa1"=>"a","\xc3\xa2"=>"a",
+		"\xc3\xa3"=>"a","\xc3\xa4"=>"a","\xc3\xa5"=>"a","\xc3\xa6"=>"e","\xc3\xa7"=>"c",
+		"\xc3\xa8"=>"e","\xc3\xa9"=>"e","\xc3\xaa"=>"e","\xc3\xab"=>"e","\xc3\xac"=>"i",
+		"\xc3\xad"=>"i","\xc3\xae"=>"i","\xc3\xaf"=>"i","\xc3\xb0"=>"d","\xc3\xb1"=>"n",
+		"\xc3\xb2"=>"o","\xc3\xb3"=>"o","\xc3\xb4"=>"o","\xc3\xb5"=>"o","\xc3\xb6"=>"o",
+		"\xc3\xb8"=>"o","\xc3\xb9"=>"u","\xc3\xba"=>"u","\xc3\xbb"=>"u","\xc3\xbc"=>"u",
+		"\xc3\xbd"=>"y","\xc3\xbe"=>"th","\xc3\xbf"=>"y","\xc4\x81"=>"a","\xc4\x83"=>"a",
+		"\xc4\x85"=>"a","\xc4\x87"=>"c","\xc4\x89"=>"c","\xc4\x8b"=>"c","\xc4\x8d"=>"c",
+		"\xc4\x8f"=>"d","\xc4\x91"=>"d","\xc4\x93"=>"e","\xc4\x95"=>"e","\xc4\x97"=>"e",
+		"\xc4\x99"=>"e","\xc4\x9b"=>"e","\xc4\x9d"=>"g","\xc4\x9f"=>"g","\xc4\xa1"=>"g",
+		"\xc4\xa3"=>"g","\xc4\xa5"=>"h","\xc4\xa7"=>"h","\xc4\xa9"=>"i","\xc4\xab"=>"i",
+		"\xc4\xad"=>"i","\xc4\xaf"=>"i","\xc4\xb1"=>"i","\xc4\xb3"=>"ij","\xc4\xb5"=>"j",
+		"\xc4\xb7"=>"k","\xc4\xb8"=>"q","\xc4\xba"=>"l","\xc4\xbc"=>"l","\xc4\xbe"=>"l",
+		"\xc5\x80"=>"l","\xc5\x82"=>"l","\xc5\x84"=>"n","\xc5\x86"=>"n","\xc5\x88"=>"n",
+		"\xc5\x89"=>"n","\xc5\x8b"=>"n","\xc5\x8d"=>"o","\xc5\x8f"=>"o","\xc5\x91"=>"o",
+		"\xc5\x93"=>"oe","\xc5\x95"=>"r","\xc5\x97"=>"r","\xc5\x99"=>"r","\xc5\x9b"=>"s",
+		"\xc5\x9d"=>"s","\xc5\x9f"=>"s","\xc5\xa1"=>"s","\xc5\xa3"=>"t","\xc5\xa5"=>"t",
+		"\xc5\xa7"=>"t","\xc5\xa9"=>"u","\xc5\xab"=>"u","\xc5\xad"=>"u","\xc5\xaf"=>"u",
+		"\xc5\xb1"=>"u","\xc5\xb3"=>"u","\xc5\xb5"=>"w","\xc5\xb7"=>"y","\xc5\xba"=>"z",
+		"\xc5\xbc"=>"z","\xc5\xbe"=>"z","\xc5\xbf"=>"s","\xc6\x80"=>"b","\xc6\x83"=>"b",
+		"\xc6\x85"=>"b","\xc6\x88"=>"c","\xc6\x8c"=>"d","\xc6\x8d"=>"d","\xc6\x92"=>"f",
+		"\xc6\x95"=>"hv","\xc6\x99"=>"k","\xc6\x9a"=>"l","\xc6\x9b"=>"l","\xc6\x9e"=>"n",
+		"\xc6\xa1"=>"o","\xc6\xa3"=>"o","\xc6\xa5"=>"p","\xc6\xa6"=>"r","\xc6\xa8"=>"s",
+		"\xc6\xaa"=>"s","\xc6\xab"=>"t","\xc6\xad"=>"t","\xc6\xb0"=>"u","\xc6\xb4"=>"y",
+		"\xc6\xb6"=>"z","\xc6\xb9"=>"z","\xc6\xba"=>"z","\xc6\xbb"=>"2","\xc6\xbd"=>"5",
+		"\xc6\xbe"=>"t","\xc6\xbf"=>"w","\xc7\x80"=>"t","\xc7\x81"=>"k","\xc7\x82"=>"k",
+		"\xc7\x83"=>"k","\xc7\x86"=>"z","\xc7\x89"=>"lj","\xc7\x8c"=>"nj","\xc7\x8e"=>"a",
+		"\xc7\x90"=>"i","\xc7\x92"=>"o","\xc7\x94"=>"u","\xc7\x96"=>"u","\xc7\x98"=>"u",
+		"\xc7\x9a"=>"u","\xc7\x9c"=>"u","\xc7\x9d"=>"e","\xc7\x9f"=>"a","\xc7\xa1"=>"a",
+		"\xc7\xa3"=>"e","\xc7\xa5"=>"g","\xc7\xa7"=>"g","\xc7\xa9"=>"k","\xc7\xab"=>"o",
+		"\xc7\xad"=>"o","\xc7\xaf"=>"s","\xc7\xb0"=>"j","\xc7\xb3"=>"dz","\xc7\xb5"=>"g",
+		"\xc7\xb9"=>"n","\xc7\xbb"=>"a","\xc7\xbd"=>"e","\xc7\xbf"=>"o","\xc8\x81"=>"a",
+		"\xc8\x83"=>"a","\xc8\x85"=>"e","\xc8\x87"=>"e","\xc8\x89"=>"i","\xc8\x8b"=>"i",
+		"\xc8\x8d"=>"o","\xc8\x8f"=>"o","\xc8\x91"=>"r","\xc8\x93"=>"r","\xc8\x95"=>"u",
+		"\xc8\x97"=>"u","\xc8\x99"=>"s","\xc8\x9b"=>"t","\xc8\x9d"=>"y","\xc8\x9f"=>"h",
+		"\xc8\xa1"=>"d","\xc8\xa3"=>"ou","\xc8\xa5"=>"z","\xc8\xa7"=>"a","\xc8\xa9"=>"e",
+		"\xc8\xab"=>"o","\xc8\xad"=>"o","\xc8\xaf"=>"o","\xc8\xb1"=>"o","\xc8\xb3"=>"y",
+		"\xc8\xb4"=>"l","\xc8\xb5"=>"n","\xc8\xb6"=>"t","\xc8\xb7"=>"j","\xc8\xb8"=>"db",
+		"\xc8\xb9"=>"qp","\xc8\xbc"=>"c","\xc8\xbf"=>"s","\xc9\x80"=>"z","\xc9\x82"=>"t",
+		"\xc9\x87"=>"e","\xc9\x89"=>"j","\xc9\x8b"=>"q","\xc9\x8d"=>"r","\xc9\x8f"=>"y",
+		/* following are combining characters etc */
+		"\xcc\x80"=>"","\xcc\x81"=>"","\xcc\x82"=>"","\xcc\x83"=>"","\xcc\x84"=>"",
+		"\xcc\x85"=>"","\xcc\x86"=>"","\xcc\x87"=>"","\xcc\x88"=>"","\xcc\x89"=>"",
+		"\xcc\x8a"=>"","\xcc\x8b"=>"","\xcc\x8c"=>"","\xcc\x8d"=>"","\xcc\x8e"=>"",
+		"\xcc\x8f"=>"","\xcc\x90"=>"","\xcc\x91"=>"","\xcc\x92"=>"","\xcc\x93"=>"",
+		"\xcc\x94"=>"","\xcc\x95"=>"","\xcc\x96"=>"","\xcc\x97"=>"","\xcc\x98"=>"",
+		"\xcc\x99"=>"","\xcc\x9a"=>"","\xcc\x9b"=>"","\xcc\x9c"=>"","\xcc\x9d"=>"",
+		"\xcc\x9e"=>"","\xcc\x9f"=>"","\xcc\xa0"=>"","\xcc\xa1"=>"","\xcc\xa2"=>"",
+		"\xcc\xa3"=>"","\xcc\xa4"=>"","\xcc\xa5"=>"","\xcc\xa6"=>"","\xcc\xa7"=>"",
+		"\xcc\xa8"=>"","\xcc\xa9"=>"","\xcc\xaa"=>"","\xcc\xab"=>"","\xcc\xac"=>"",
+		"\xcc\xad"=>"","\xcc\xae"=>"","\xcc\xaf"=>"","\xcc\xb0"=>"","\xcc\xb1"=>"",
+		"\xcc\xb2"=>"","\xcc\xb3"=>"","\xcc\xb4"=>"","\xcc\xb5"=>"","\xcc\xb6"=>"",
+		"\xcc\xb7"=>"","\xcc\xb8"=>"","\xcc\xb9"=>"","\xcc\xba"=>"","\xcc\xbb"=>"",
+		"\xcc\xbc"=>"","\xcc\xbd"=>"","\xcc\xbe"=>"","\xcc\xbf"=>"","\xcd\x80"=>"",
+		"\xcd\x81"=>"","\xcd\x82"=>"","\xcd\x83"=>"","\xcd\x84"=>"","\xcd\x85"=>"",
+		"\xcd\x86"=>"","\xcd\x87"=>"","\xcd\x88"=>"","\xcd\x89"=>"","\xcd\x8a"=>"",
+		"\xcd\x8b"=>"","\xcd\x8c"=>"","\xcd\x8d"=>"","\xcd\x8e"=>"","\xcd\x8f"=>"",
+		"\xcd\x90"=>"","\xcd\x91"=>"","\xcd\x92"=>"","\xcd\x93"=>"","\xcd\x94"=>"",
+		"\xcd\x95"=>"","\xcd\x96"=>"","\xcd\x97"=>"","\xcd\x98"=>"","\xcd\x99"=>"",
+		"\xcd\x9a"=>"","\xcd\x9b"=>"","\xcd\x9c"=>"","\xcd\x9d"=>"","\xcd\x9e"=>"",
+		"\xcd\x9f"=>"","\xcd\xa0"=>"","\xcd\xa1"=>"","\xcd\xa2"=>"","\xcd\xa3"=>"",
+		"\xcd\xa4"=>"","\xcd\xa5"=>"","\xcd\xa6"=>"","\xcd\xa7"=>"","\xcd\xa8"=>"",
+		"\xcd\xa9"=>"","\xcd\xaa"=>"","\xcd\xab"=>"","\xcd\xac"=>"","\xcd\xad"=>"",
+		"\xcd\xae"=>"","\xcd\xaf"=>""
+	);
 	
-	private static $normalletterstable = array( 
-		// normalisation set up to U+024F, pretty rough by TRUT
-		"\xc3\xdf"=>'ss',"\xc3\xa0"=>'a',"\xc3\xa1"=>'a',"\xc3\xa2"=>'a',"\xc3\xa3"=>'a',
-		"\xc3\xa4"=>'a',"\xc3\xa5"=>'a',"\xc3\xa6"=>'e',"\xc3\xa7"=>'c',"\xc3\xa8"=>'e',
-		"\xc3\xa9"=>'e',"\xc3\xaa"=>'e',"\xc3\xab"=>'e',"\xc3\xac"=>'i',"\xc3\xad"=>'i',
-		"\xc3\xae"=>'i',"\xc3\xaf"=>'i',"\xc3\xb0"=>'d',"\xc3\xb1"=>'n',"\xc3\xb2"=>'o',
-		"\xc3\xb3"=>'o',"\xc3\xb4"=>'o',"\xc3\xb5"=>'o',"\xc3\xb6"=>'o',/*gap*/
-		"\xc3\xb8"=>'o',"\xc3\xb9"=>'u',"\xc3\xba"=>'u',"\xc3\xbb"=>'u',"\xc3\xbc"=>'u',
-		"\xc3\xbd"=>'y',"\xc3\xbe"=>'th',"\xc3\xbf"=>'y',"\xc4\x81"=>'a',"\xc4\x83"=>'a',
-		"\xc4\x85"=>'a',"\xc4\x87"=>'c',"\xc4\x89"=>'c',"\xc4\x8b"=>'c',"\xc4\x8d"=>'c',
-		"\xc4\x8f"=>'d',"\xc4\x91"=>'d',"\xc4\x93"=>'e',"\xc4\x95"=>'e',"\xc4\x97"=>'e',
-		"\xc4\x99"=>'e',"\xc4\x9b"=>'e',"\xc4\x9d"=>'g',"\xc4\x9f"=>'g',"\xc4\xa1"=>'g',
-		"\xc4\xa3"=>'g',"\xc4\xa5"=>'h',"\xc4\xa7"=>'h',"\xc4\xa9"=>'i',"\xc4\xab"=>'i',
-		"\xc4\xad"=>'i',"\xc4\xaf"=>'i',"\xc4\xb1"=>'i',"\xc4\xb3"=>'ij',"\xc4\xb5"=>'j',
-		"\xc4\xb7"=>'k',"\xc4\xb8"=>'q',"\xc4\xba"=>'l',"\xc4\xbc"=>'l',"\xc4\xbe"=>'l',
-		"\xc5\x80"=>'l',"\xc5\x82"=>'l',"\xc5\x84"=>'n',"\xc5\x86"=>'n',"\xc5\x88"=>'n',
-		"\xc5\x89"=>'n',"\xc5\x8b"=>'n',"\xc5\x8d"=>'o',"\xc5\x8f"=>'o',"\xc5\x91"=>'o',
-		"\xc5\x93"=>'oe',"\xc5\x95"=>'r',"\xc5\x97"=>'r',"\xc5\x99"=>'r',"\xc5\x9b"=>'s',
-		"\xc5\x9d"=>'s',"\xc5\x9f"=>'s',"\xc5\xa1"=>'s',"\xc5\xa3"=>'t',"\xc5\xa5"=>'t',
-		"\xc5\xa7"=>'t',"\xc5\xa9"=>'u',"\xc5\xab"=>'u',"\xc5\xad"=>'u',"\xc5\xaf"=>'u',
-		"\xc5\xb1"=>'u',"\xc5\xb3"=>'u',"\xc5\xb5"=>'w',"\xc5\xb7"=>'y',"\xc5\xba"=>'z',
-		"\xc5\xbc"=>'z',"\xc5\xbe"=>'z',"\xc5\xbf"=>'s',
-		"\xc6\x80"=>'b',"\xc6\x83"=>'b',"\xc6\x85"=>'b',/*??*/"\xc6\x88"=>'c',
-		"\xc6\x8c"=>'d',"\xc6\x8d"=>'d',/*delta*/"\xc6\x92"=>'f',"\xc6\x95"=>'hv',
-		"\xc6\x99"=>'k',"\xc6\x9a"=>'l',"\xc6\x9b"=>'l',/*lambda*/"\xc6\x9e"=>'n',
-		"\xc6\xa1"=>'o',"\xc6\xa3"=>'o',"\xc6\xa5"=>'p',"\xc6\xa6"=>'r',"\xc6\xa8"=>'s',
-		"\xc6\xaa"=>'s',"\xc6\xab"=>'t',"\xc6\xad"=>'t',"\xc6\xb0"=>'u',"\xc6\xb4"=>'y',
-		"\xc6\xb6"=>'z',"\xc6\xb9"=>'z',"\xc6\xba"=>'z',"\xc6\xbb"=>'2',"\xc6\xbd"=>'5',
-		"\xc6\xbe"=>'t',"\xc6\xbf"=>'w',
-		"\xc7\x80"=>'t',"\xc7\x81"=>'k',/*??*/"\xc7\x82"=>'k',/*??*/"\xc7\x83"=>'k',/*??*/
-		"\xc7\x86"=>'z',"\xc7\x89"=>'lj',"\xc7\x8c"=>'nj',"\xc7\x8e"=>'a',"\xc7\x90"=>'i',
-		"\xc7\x92"=>'o',"\xc7\x94"=>'u',"\xc7\x96"=>'u',"\xc7\x98"=>'u',"\xc7\x9a"=>'u',
-		"\xc7\x9c"=>'u',"\xc7\x9d"=>'e',"\xc7\x9f"=>'a',"\xc7\xa1"=>'a',"\xc7\xa3"=>'e',
-		"\xc7\xa5"=>'g',"\xc7\xa7"=>'g',"\xc7\xa9"=>'k',"\xc7\xab"=>'o',"\xc7\xad"=>'o',
-		"\xc7\xaf"=>'s',"\xc7\xb0"=>'j',"\xc7\xb3"=>'dz',"\xc7\xb5"=>'g',"\xc7\xb8"=>'n',
-		"\xc7\xbb"=>'a',"\xc7\xbd"=>'e',"\xc7\xbf"=>'o',
-		"\xc8\x81"=>'a',"\xc8\x83"=>'a',"\xc8\x85"=>'e',"\xc8\x87"=>'e',"\xc8\x89"=>'i',
-		"\xc8\x8b"=>'i',"\xc8\x8d"=>'o',"\xc8\x8f"=>'o',"\xc8\x91"=>'r',"\xc8\x93"=>'r',
-		"\xc8\x95"=>'u',"\xc8\x97"=>'u',"\xc8\x99"=>'s',"\xc8\x9b"=>'t',"\xc8\x9d"=>'y',
-		"\xc8\x9f"=>'h',"\xc8\xa1"=>'d',"\xc8\xa3"=>'ou',"\xc8\xa5"=>'z',"\xc8\xa7"=>'a',
-		"\xc8\xa9"=>'e',"\xc8\xab"=>'o',"\xc8\xad"=>'o',"\xc8\xaf"=>'o',"\xc8\xb1"=>'o',
-		"\xc8\xb3"=>'y',"\xc8\xb4"=>'l',"\xc8\xb5"=>'n',"\xc8\xb6"=>'t',"\xc8\xb7"=>'j',
-		"\xc8\xb8"=>'db',"\xc8\xb9"=>'qp',"\xc8\xbc"=>'c',"\xc8\xbf"=>'s',
-		"\xc9\x80"=>'z',"\xc9\x82"=>'t',"\xc9\x87"=>'e',"\xc9\x89"=>'j',"\xc9\x8b"=>'q',
-		"\xc9\x8d"=>'r',"\xc9\x8f"=>'y',
-		// combining marks U+0300 to U+036F (strip them out)
-		"\xcc\x80"=>'',"\xcc\x81"=>'',"\xcc\x82"=>'',"\xcc\x83"=>'',"\xcc\x84"=>'',
-		"\xcc\x85"=>'',"\xcc\x86"=>'',"\xcc\x87"=>'',"\xcc\x88"=>'',"\xcc\x89"=>'',
-		"\xcc\x8a"=>'',"\xcc\x8b"=>'',"\xcc\x8c"=>'',"\xcc\x8d"=>'',"\xcc\x8e"=>'',
-		"\xcc\x8f"=>'',"\xcc\x90"=>'',"\xcc\x91"=>'',"\xcc\x92"=>'',"\xcc\x93"=>'',
-		"\xcc\x94"=>'',"\xcc\x95"=>'',"\xcc\x96"=>'',"\xcc\x97"=>'',"\xcc\x98"=>'',
-		"\xcc\x99"=>'',"\xcc\x9a"=>'',"\xcc\x9b"=>'',"\xcc\x9c"=>'',"\xcc\x9d"=>'',
-		"\xcc\x9e"=>'',"\xcc\x9f"=>'',"\xcc\xa0"=>'',"\xcc\xa1"=>'',"\xcc\xa2"=>'',
-		"\xcc\xa3"=>'',"\xcc\xa4"=>'',"\xcc\xa5"=>'',"\xcc\xa6"=>'',"\xcc\xa7"=>'',
-		"\xcc\xa8"=>'',"\xcc\xa9"=>'',"\xcc\xaa"=>'',"\xcc\xab"=>'',"\xcc\xac"=>'',
-		"\xcc\xad"=>'',"\xcc\xae"=>'',"\xcc\xaf"=>'',"\xcc\xb0"=>'',"\xcc\xb1"=>'',
-		"\xcc\xb2"=>'',"\xcc\xb3"=>'',"\xcc\xb4"=>'',"\xcc\xb5"=>'',"\xcc\xb6"=>'',
-		"\xcc\xb7"=>'',"\xcc\xb8"=>'',"\xcc\xb9"=>'',"\xcc\xba"=>'',"\xcc\xbb"=>'',
-		"\xcc\xbc"=>'',"\xcc\xbd"=>'',"\xcc\xbe"=>'',"\xcc\xbf"=>'',"\xcd\x80"=>'',
-		"\xcd\x81"=>'',"\xcd\x82"=>'',"\xcd\x83"=>'',"\xcd\x84"=>'',"\xcd\x85"=>'',
-		"\xcd\x86"=>'',"\xcd\x87"=>'',"\xcd\x88"=>'',"\xcd\x89"=>'',"\xcd\x8a"=>'',
-		"\xcd\x8b"=>'',"\xcd\x8c"=>'',"\xcd\x8d"=>'',"\xcd\x8e"=>'',"\xcd\x8f"=>'',
-		"\xcd\x90"=>'',"\xcd\x91"=>'',"\xcd\x92"=>'',"\xcd\x93"=>'',"\xcd\x94"=>'',
-		"\xcd\x95"=>'',"\xcd\x96"=>'',"\xcd\x97"=>'',"\xcd\x98"=>'',"\xcd\x99"=>'',
-		"\xcd\x9a"=>'',"\xcd\x9b"=>'',"\xcd\x9c"=>'',"\xcd\x9d"=>'',"\xcd\x9e"=>'',
-		"\xcd\x9f"=>'',"\xcd\xa0"=>'',"\xcd\xa1"=>'',"\xcd\xa2"=>'',"\xcd\xa3"=>'',
-		"\xcd\xa4"=>'',"\xcd\xa5"=>'',"\xcd\xa6"=>'',"\xcd\xa7"=>'',"\xcd\xa8"=>'',
-		"\xcd\xa9"=>'',"\xcd\xaa"=>'',"\xcd\xab"=>'',"\xcd\xac"=>'',"\xcd\xad"=>'',
-		"\xcd\xae"=>'',"\xcd\xaf"=>'',
-		);
-		
 	private static $spacecharsascii = array(
 		"\x09"=>' ',"\x0a"=>' ',"\x0b"=>' ',"\x0c"=>' ',"\x0d"=>' ',/*"\x20"=>' ',*/
 		);
@@ -286,7 +316,7 @@ class textnormal
 		// closing opening punc
 		")"=>'',"]"=>'',"}"=>'',"("=>'',"["=>'',"\x7b"=>'',
 		// dashes
-		"-"=>'',
+		/*"-"=>'',*/
 		// other
 		"!"=>'',"\x22"=>'',"#"=>'',"%"=>'',"&"=>'',/*"'"=>'',*/"*"=>'',","=>'',/*"."=>'',*/
 		"/"=>'',":"=>'',";"=>'',"?"=>'',"@"=>'',"\x5c"=>'',
@@ -348,7 +378,7 @@ class textnormal
 		"\xc3\x8c"=>"\xc3\xac","\xc3\x8d"=>"\xc3\xad","\xc3\x8e"=>"\xc3\xae",
 		"\xc3\x8f"=>"\xc3\xaf","\xc3\x90"=>"\xc3\xb0","\xc3\x91"=>"\xc3\xb1",
 		"\xc3\x92"=>"\xc3\xb2","\xc3\x93"=>"\xc3\xb3","\xc3\x94"=>"\xc3\xb4",
-		"\xc3\x95"=>"\xc3\xb5","\xc3\x96"=>"\xc3\xb6","\xc3\x97"=>"\xc3\xb7",
+		"\xc3\x95"=>"\xc3\xb5","\xc3\x96"=>"\xc3\xb6",/*"\xc3\x97"=>"\xc3\xb7",*/
 		"\xc3\x98"=>"\xc3\xb8","\xc3\x99"=>"\xc3\xb9","\xc3\x9a"=>"\xc3\xba",
 		"\xc3\x9b"=>"\xc3\xbb","\xc3\x9c"=>"\xc3\xbc","\xc3\x9d"=>"\xc3\xbd",
 		"\xc3\x9e"=>"\xc3\xbe","\xc4\x80"=>"\xc4\x81","\xc4\x82"=>"\xc4\x83",
@@ -371,13 +401,13 @@ class textnormal
 		"\xc5\xa6"=>"\xc5\xa7","\xc5\xa8"=>"\xc5\xa9","\xc5\xaa"=>"\xc5\xab",
 		"\xc5\xac"=>"\xc5\xad","\xc5\xae"=>"\xc5\xaf","\xc5\xb0"=>"\xc5\xb1",
 		"\xc5\xb2"=>"\xc5\xb3","\xc5\xb4"=>"\xc5\xb5","\xc5\xb6"=>"\xc5\xb7",
-		"\xc5\xb8"=>"\xc5\xb9","\xc5\xb9"=>"\xc5\xba","\xc5\xbb"=>"\xc5\xbc",
+		/*"\xc5\xb8"=>"\xc5\xb9",*/"\xc5\xb9"=>"\xc5\xba","\xc5\xbb"=>"\xc5\xbc",
 		"\xc5\xbd"=>"\xc5\xbe","\xc6\x81"=>"\xc6\x80","\xc6\x82"=>"\xc6\x83",
-		"\xc6\x84"=>"\xc6\x85","\xc6\x87"=>"\xc6\x88","\xc6\x8a"=>"\xc6\x89",
-		"\xc6\x8b"=>"\xc6\x8c","\xc6\x8e"=>"\xc6\x8f","\xc6\x91"=>"\xc6\x92",
+		"\xc6\x84"=>"\xc6\x85","\xc6\x87"=>"\xc6\x88","\xc6\x8a"=>"\xc9\x97",
+		"\xc6\x8b"=>"\xc6\x8c","\xc6\x8e"=>"\xc7\x9d","\xc6\x91"=>"\xc6\x92",
 		"\xc6\x98"=>"\xc6\x99","\xc6\x9d"=>"\xc6\x9e","\xc6\xa0"=>"\xc6\xa1",
 		"\xc6\xa2"=>"\xc6\xa3","\xc6\xa4"=>"\xc6\xa5","\xc6\xa7"=>"\xc6\xa8",
-		"\xc6\xaf"=>"\xc6\xb0","\xc6\xb1"=>"\xc6\xb2","\xc6\xb3"=>"\xc6\xb4",
+		"\xc6\xaf"=>"\xc6\xb0","\xc6\xb1"=>"\xca\x8a","\xc6\xb3"=>"\xc6\xb4",
 		"\xc6\xb5"=>"\xc6\xb6","\xc6\xb7"=>"\xc6\xba","\xc6\xb8"=>"\xc6\xb9",
 		"\xc6\xbc"=>"\xc6\xbd","\xc7\x84"=>"\xc7\x86","\xc7\x85"=>"\xc7\x86",
 		"\xc7\x87"=>"\xc7\x89","\xc7\x88"=>"\xc7\x89","\xc7\x8a"=>"\xc7\x8c",
