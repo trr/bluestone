@@ -59,14 +59,6 @@ class utf8 {
 		if (preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $str))
 			return $str;
 
-		return self::repair($str);
-	}
-
-	public static function repair($str) {
-	// Identical result to filter($str) except that this is optimised for when you already know
-	// (or are fairly sure) the string is NOT valid already.
-	// This omits the initial check of validity - all strings assumed invalid
-
 		if (preg_match('/./u', $str)) {
 			// if it is valid UTF8 with control codes/noncharacters, filter
 
@@ -112,7 +104,7 @@ class utf8 {
 		// first check if the unicode code points look like another layer of utf-8 encoding
 		// (rough check, not exact, but false positives probably low)
 		if (!preg_match('/^(?:[\x00-\x7f]++|[\xc2-\xf4][\x80-\xbf\x{152}\x{153}\x{160}\x{161}\x{17d}\x{178}\x{17e}\x{192}\x{2c6}\x{2dc}\x{2013}\x{2014}\x{2018}-\x{2019}\x{201a}\x{201c}-\x{201e}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203a}\x{20ac}\x{2122}]{1,3})++$/u', $str))
-			return $this->filter();
+			return self::filter($str);
 
 		// why not just use utf8_decode?  It doesn't support code points outside latin-1
 		// Also I didn't want to be dependant on mbstring (for this entire class)
