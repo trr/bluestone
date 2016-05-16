@@ -59,7 +59,7 @@ class utf8 {
 		if (preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $str))
 			return $str;
 
-		if (preg_match('/./u', $str)) {
+		if (preg_match('//u', $str)) {
 			// if it is valid UTF8 with control codes/noncharacters, filter
 
 			// do we have code points in C1 that would be valid CP-1252?
@@ -79,7 +79,7 @@ class utf8 {
 			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]/u', "\xef\xbf\xbd", $str);
 		}
 
-		return self::filter(utf8_encode($str));
+		return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
 	}
 	
 	public static function convertdoubleutf8($str)
