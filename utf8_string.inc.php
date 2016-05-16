@@ -2,7 +2,7 @@
 
 /*
 	utf8_string - class for handling utf8 strings
-	Copyright (c) 2004, 2011 Thomas Rutter
+	Copyright (c) 2004, 2016 Thomas Rutter
 	
 	This file is part of Bluestone.
 	
