@@ -49,12 +49,11 @@ class utf8 {
 	public static function filter($str) {
 	// filters the string ensuring it's valid UTF-8
 	// If already valid, is returned unmodified very quickly - otherwise:
-	// - converts incorrectly-converted CP-1252 codepoints to their Unicode equivalent
 	// - strips out control characters (except /r,/n,/t), non-characters and reserved codepoints
 	// - If it's not UTF-8 encoded, treats it as ASCII/ISO-8859-1/CP-1252 and converts
 	//   accordingly
-	// This is best used when you are fairly sure the string is UTF-8, and you just want
-	// to guard against encoding errors in input.
+	// This is best used when you are expecting the string to be UTF-8, but you want
+	// to guard against errors which would break compatibility in eg HTML, XML/
 
 		if (preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $str))
 			return $str;
@@ -63,6 +62,7 @@ class utf8 {
 			// if it is valid UTF8 with control codes/noncharacters, filter
 
 			// do we have code points in C1 that would be valid CP-1252?
+			/*
 			if (strpos($str, "\xc2") !== false) {
 				$str = strtr($str, array(
 					"\xC2\x80"=>"\xE2\x82\xAC","\xC2\x82"=>"\xE2\x80\x9A","\xC2\x83"=>"\xC6\x92",
@@ -75,6 +75,7 @@ class utf8 {
 					"\xC2\x99"=>"\xE2\x84\xA2","\xC2\x9A"=>"\xC5\xA1","\xC2\x9B"=>"\xE2\x80\xBA",
 					"\xC2\x9C"=>"\xC5\x93","\xC2\x9E"=>"\xC5\xBE","\xC2\x9F"=>"\xC5\xB8"));
 			}
+			 */
 
 			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]/u', "\xef\xbf\xbd", $str);
 		}
