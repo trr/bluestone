@@ -104,21 +104,17 @@ class textnormal
 		// converts everything down to:
 		// - lowercase letters (a to z)
 		// - digits (0 to 9)
-		// - apostrophe ('), period (.), and hyphen/minus (-) when they occur in the middle of a word or number
+		// - apostrophe ('), period (.), hyphen/minus (-) and underscore 
+		//   when they occur in the middle of a word or number
 		// - space (multiple spaces become one)
 		// This converts unicode letters up to x24f to lowercase ascii
 		// and converts some other unicode forms of hyphen and apostrophe
 		
 		$str = self::chars($str);
-		$str = strtr($str,
-			"\n\r\t\v\f" . '&,/:;?@=|"{}[]()<>',
-			'     '      . '                  ');
 
-		$str = preg_replace('/[^a-z0-9.\'\-_ ]+|(?<![a-z0-9.\'\-_])[.\'\-_]+|[.\'\-_](?![a-z0-9])/S', '', $str);
-
-		// this seems the fastest way to consolidate spaces
-		while ($str !== ($tmp = str_replace('  ', ' ', $str)))
-			$str = $tmp;
+		// these two operations were faster than combining them
+		$str = preg_replace('/[.\'\-_](?![a-z0-9])|(?<![a-z0-9])[.\'\-_]+/S', ' ', $str);
+		$str = preg_replace('/[^a-z0-9.\'\-_]+/S', ' ', $str);
 
 		return trim($str);
 	}
