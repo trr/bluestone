@@ -112,9 +112,21 @@ class textnormal
 		
 		$str = self::chars($str);
 
-		// these two operations were faster than combining them
-		$str = preg_replace('/[.\'\-_](?![a-z0-9])|(?<![a-z0-9])[.\'\-_]+/S', ' ', $str);
-		$str = preg_replace('/[^a-z0-9.\'\-_]+/S', ' ', $str);
+		// preserved chars
+		// . and - need to proceed a number or . OR come between two alphanums
+		// all others (eg ' and _) need to come between two alphanums
+		
+		// these two operations separately were faster than combining them
+		$str = preg_replace('/
+			[.\'_](?![a-z\d])
+			| (?<![a-z\d])[\'_]+
+			| (?<![a-z\d])\.(?!\d)
+			| (?<![a-z\d])-(?![.\d])
+			| (?<=[a-z\d])-(?![a-z\d])
+			| ,(?!\d)
+			| (?<!\d),
+			/Sx', ' ', $str);
+		$str = preg_replace('/[^a-z\d.\'\-_,]+/S', ' ', $str);
 
 		return trim($str);
 	}
