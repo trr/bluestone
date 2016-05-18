@@ -119,14 +119,14 @@ class textnormal
 		// these two operations separately were faster than combining them
 		$str = preg_replace('/
 			[.\'_](?![a-z\d])
+			| ,(?!\d)
 			| (?<![a-z\d])[\'_]+
 			| (?<![a-z\d])\.(?!\d)
 			| (?<![a-z\d])-(?![.\d])
 			| (?<=[a-z\d])-(?![a-z\d])
-			| ,(?!\d)
 			| (?<!\d),
 			/Sx', ' ', $str);
-		$str = preg_replace('/[^a-z\d.\'\-_,]+/S', ' ', $str);
+		$str = preg_replace('/[^a-z\d,.\'\-_]+/S', ' ', $str);
 
 		return trim($str);
 	}
