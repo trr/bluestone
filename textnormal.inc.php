@@ -100,7 +100,7 @@ class textnormal
 		return strtr($str, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
 	}
 
-	public static function asciify($str) {
+	public static function asciify($str, $extra = '') {
 		// converts everything down to:
 		// - lowercase letters (a to z)
 		// - digits (0 to 9)
@@ -115,7 +115,7 @@ class textnormal
 		// preserved chars
 		// . and - need to proceed a number or . OR come between two alphanums
 		// all others (eg ' and _) need to come between two alphanums
-		
+
 		// these two operations separately were faster than combining them
 		$str = preg_replace('/
 			[.\'_](?![a-z\d])
@@ -126,7 +126,7 @@ class textnormal
 			| (?<=[a-z\d])-(?![a-z\d])
 			| (?<!\d),
 			/Sx', ' ', $str);
-		$str = preg_replace('/[^a-z\d,.\'\-_]+/S', ' ', $str);
+		$str = preg_replace('/[^a-z\d' . preg_quote($extra, '/') . ',.\'\-_]+/S', ' ', $str);
 
 		return trim($str);
 	}
