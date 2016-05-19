@@ -33,13 +33,13 @@
 // ready for sorting or indexing.
 
 if (!defined('BLUESTONE_DIR')) define('BLUESTONE_DIR', dirname(__FILE__));
-require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 
 class textnormal
 {
 	// ############## Deprecated interface ##################
 	private $string, $apos = "'";
 	function __construct($string = NULL, $filter = true) {
+		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 		$this->string = $filter ? utf8::filter($string) : $string;
 	}
 	public function normal($chars = true, $spaces = true, $dashes = true, $punc = true) {
