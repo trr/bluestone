@@ -38,22 +38,24 @@ require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
 class textnormal
 {
 	// ############## Deprecated interface ##################
-	private $string;
+	private $string, $apos = "'";
 	function __construct($string = NULL, $filter = true) {
 		$this->string = $filter ? utf8::filter($string) : $string;
 	}
 	public function normal($chars = true, $spaces = true, $dashes = true, $punc = true) {
-		$str = $dashes ? str_replace('-', ' ', $this->string) : $this->string;
-		if ($chars && $spaces && $punc)
-			return self::asciify($str);
-		if ($chars) $str = self::chars($str);
-		if ($spaces) $str = self::$spaces($str);
+		if ($chars && $spaces && $punc) $str = self::asciify($this->string);
+		else {
+			$str = $chars ? self::chars($this->string) : $this->string;
+			if ($spaces) $str = self::spaces($str);
+		}
+		if (!$dashes) $str = str_replace('-', ' ', $str);
+		if ($this->apos != "'") $str = str_replace("'", $apos, $str);
 		return $str;
 	}
 	public function setwebchars() {} // deprecated
-	public function setapostrophe() {} // deprecated
+	public function setapostrophe($apos) { $this->apos = $apos; } // deprecated
 	public function tolower() { return self::lower($this->string); }
-	public function words() { return explode(' ', self::asciify($this->string)); }
+	public function words($chars = true) { return explode(' ', $this->normal($chars)); }
 	// ######################################################
 
 	public static function lower($str) {
