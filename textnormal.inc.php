@@ -106,8 +106,9 @@ class textnormal
 		// converts everything down to:
 		// - lowercase letters (a to z)
 		// - digits (0 to 9)
-		// - apostrophe ('), period (.), hyphen/minus (-) and underscore 
-		//   when they occur in the middle of a word or number
+		// - apostrophe ('), period (.), hyphen/minus (-), underscore (_) and comma (,)
+		//   when they occur as part of a word or number
+		//
 		// - space (multiple spaces become one)
 		// This converts unicode letters up to x24f to lowercase ascii
 		// and converts some other unicode forms of hyphen and apostrophe
