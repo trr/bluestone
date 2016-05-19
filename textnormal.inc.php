@@ -367,8 +367,7 @@ class textnormal
 		"\xc8\xbb"=>"\xc8\xbc","\xc9\x81"=>"\xc9\x82","\xc9\x86"=>"\xc9\x87",
 		"\xc9\x88"=>"\xc9\x89","\xc9\x8a"=>"\xc9\x8b","\xc9\x8c"=>"\xc9\x8d",
 		"\xc9\x8e"=>"\xc9\x8f",);	
-	/*
-		// following are combining characters etc
+
 		/*
 	private static $spacecharstable = array(     
 		// space
@@ -444,14 +443,7 @@ class textnormal
 		"\xe2\x81\x98"=>'',"\xe2\x81\x99"=>'',"\xe2\x81\x9a"=>'',"\xe2\x81\x9b"=>'',
 		"\xe2\x81\x9c"=>'',"\xe2\x81\x9d"=>'',"\xe2\x81\x9e"=>'',
 		);
-*/
 
-		
-	/*
-	static $symbolcharsascii = array(
-		"\x24",
-		"+","<","=",">","|","~",
-		);
 	static $symbolcharstable = array(
 		// currency
 		"\xc2\xa2","\xc2\xa3","\xc2\xa4","\xc2\xa5","\xe2\x82\xa0","\xe2\x82\xa1",
