@@ -43,7 +43,7 @@ class textnormal
 		$this->string = $filter ? utf8::filter($string) : $string;
 	}
 	public function normal($chars = true, $spaces = true, $dashes = true, $punc = true) {
-		if ($chars && $spaces && $punc) $str = self::asciify($this->string);
+		if ($chars && $spaces && $punc) $str = self::asciinormal($this->string);
 		else {
 			$str = $chars ? self::chars($this->string) : $this->string;
 			if ($spaces) $str = self::spaces($str);
@@ -83,26 +83,30 @@ class textnormal
 		return trim($str);
 	}
 
-	public static function chars($str) {
+	public static function asciify($str, $filter = true) {
+	// transliterates Unicode characters (including all latin letters in WGL-4)
+	// into ascii
+	// If $filter is left true, will strip any unhandled chars - result
+	// will be valid ASCII
+	// If false, will leave them - result may include multi-byte UTF characters
 
-		// UTF sequences starting c2-c7, e1-e2 can be folded, cb can be a mark
-		$tmp = strtr($str, "\xc2\xc3\xc4\xc5\xc6\xc7\xcb\xe1\xe2", "\xf8\xf8\xf9\xf9\xf9\xf9\xfa\xf9\xf9");
+		// UTF starting bytes which can be folded
+		$tmp = strtr($str, "\xc2\xc3\xc4\xc5\xc6\xc7\xcb\xe1\xe2", "\xf8\xf8\xf9\xf9\xf9\xf9\xf9\xf9\xf9");
 
 		if ($tmp !== $str) {
-			// if there are no c4-c7, e1-e2 then we can use a shorter, faster table
+			// if there are no c4-c7, cb, e1-e2 then we can use a shorter, faster table
 			if (strpos($tmp, "\xf9") !== false)
 				$str = strtr($str, self::$normalletterstable);
-			elseif (strpos($tmp, "\xf8") !== false)
+			else
 				$str = strtr($str, self::$shortnormaltable);
-
-			if (strpos($tmp, "\xfa") !== false)
-				$str = strtr($str, self::$combiningmarkstable);
 		}
+		if ($filter)
+			$str = preg_replace('/[^\x20-\x7e\x0a\x0d\x09]+/S', '', $str);
 
-		return strtr($str, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+		return $str;
 	}
 
-	public static function asciify($str, $extra = '') {
+	public static function asciinormal($str, $extra = '') {
 		// converts everything down to:
 		// - lowercase letters (a to z)
 		// - digits (0 to 9)
@@ -116,7 +120,9 @@ class textnormal
 		// NOT suitable for non-latin languages (outside WGL-4, or greek/cyrillic in WGL-4)
 		// and some of the transliterations may be english specific (eg sharp s to ss)
 		
-		$str = self::chars($str);
+		$str = strtr(self::asciify($str, false),
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+			'abcdefghijklmnopqrstuvwxyz');
 
 		// preserved chars
 		// . and - need to proceed a number or . OR come between two alphanums
@@ -125,10 +131,10 @@ class textnormal
 		// these two operations separately were faster than combining them
 		$str = preg_replace('/
 			[.\'](?![a-z0-9])
-			| ,(?!0-9)
-			| (?<!0-9),
+			| ,(?![0-9])
+			| (?<![0-9]),
 			| (?<![a-z0-9])\'
-			| (?<![a-z0-9])\.(?!0-9)
+			| (?<![a-z0-9])\.(?![0-9])
 			| (?<![a-z0-9])-(?![.0-9])
 			| (?<=[a-z0-9])-(?![a-z0-9])
 			/Sx', ' ', $str);
@@ -161,13 +167,20 @@ class textnormal
 	}
 
 	private static $shortnormaltable = array(
-		// version of $normalletterstable only consisting of code points up to 0xff (latin-1)
-		"\xc3\x80"=>"a","\xc3\x81"=>"a","\xc3\x82"=>"a","\xc3\x83"=>"a","\xc3\x84"=>"a",
-		"\xc3\x85"=>"a","\xc3\x86"=>"e","\xc3\x87"=>"c","\xc3\x88"=>"e","\xc3\x89"=>"e",
-		"\xc3\x8a"=>"e","\xc3\x8b"=>"e","\xc3\x8c"=>"i","\xc3\x8d"=>"i","\xc3\x8e"=>"i",
-		"\xc3\x8f"=>"i","\xc3\x90"=>"d","\xc3\x91"=>"n","\xc3\x92"=>"o","\xc3\x93"=>"o",
-		"\xc3\x94"=>"o","\xc3\x95"=>"o","\xc3\x96"=>"o","\xc3\x98"=>"o","\xc3\x99"=>"u",
-		"\xc3\x9a"=>"u","\xc3\x9b"=>"u","\xc3\x9c"=>"u","\xc3\x9d"=>"y","\xc3\x9e"=>"th",
+		// latin-1 punc
+		"\xc2\xa0"=>' ', // nbsp
+		"\xc2\xad"=>'', // soft hyphen
+		"\xc2\xa1"=>'!',"\xc2\xa2"=>'c',"\xc2\xa3"=>"GBP","\xc2\xa5"=>"JPY",
+		"\xc2\xa6"=>'|',"\xc2\xa9"=>'(C)',"\xc2\xab"=>'<<',"\xc2\xae"=>'(R)',
+		"\xc2\xb0"=>'deg',"\xc2\xb1"=>'+/-',"\xc2\xb5"=>'mu',"\xc2\xb7"=>'.',"\xc2\xbb"=>'>>',
+		"\xc2\xbc"=>'1/4',"\xc2\xbd"=>'1/2',"\xc2\xbe"=>'3/4',"\xc2\xbf"=>'?',
+		// latin 1
+		"\xc3\x80"=>"A","\xc3\x81"=>"A","\xc3\x82"=>"A","\xc3\x83"=>"A","\xc3\x84"=>"A",
+		"\xc3\x85"=>"A","\xc3\x86"=>"E","\xc3\x87"=>"C","\xc3\x88"=>"E","\xc3\x89"=>"E",
+		"\xc3\x8a"=>"E","\xc3\x8b"=>"E","\xc3\x8c"=>"I","\xc3\x8d"=>"I","\xc3\x8e"=>"I",
+		"\xc3\x8f"=>"I","\xc3\x90"=>"D","\xc3\x91"=>"N","\xc3\x92"=>"O","\xc3\x93"=>"O",
+		"\xc3\x94"=>"O","\xc3\x95"=>"O","\xc3\x96"=>"O","\xc3\x98"=>"O","\xc3\x99"=>"U",
+		"\xc3\x9a"=>"U","\xc3\x9b"=>"U","\xc3\x9c"=>"U","\xc3\x9d"=>"Y","\xc3\x9e"=>"TH",
 		"\xc3\x9f"=>"ss","\xc3\xa0"=>"a","\xc3\xa1"=>"a","\xc3\xa2"=>"a",
 		"\xc3\xa3"=>"a","\xc3\xa4"=>"a","\xc3\xa5"=>"a","\xc3\xa6"=>"e","\xc3\xa7"=>"c",
 		"\xc3\xa8"=>"e","\xc3\xa9"=>"e","\xc3\xaa"=>"e","\xc3\xab"=>"e","\xc3\xac"=>"i",
@@ -175,20 +188,23 @@ class textnormal
 		"\xc3\xb2"=>"o","\xc3\xb3"=>"o","\xc3\xb4"=>"o","\xc3\xb5"=>"o","\xc3\xb6"=>"o",
 		"\xc3\xb8"=>"o","\xc3\xb9"=>"u","\xc3\xba"=>"u","\xc3\xbb"=>"u","\xc3\xbc"=>"u",
 		"\xc3\xbd"=>"y","\xc3\xbe"=>"th","\xc3\xbf"=>"y",
-		// space
-		"\xc2\xa0"=>' ',
-		// soft hyphen
-		"\xc2\xad"=>'',
 	);
 
 	private static $normalletterstable = array(
+		// latin-1 punc
+		"\xc2\xa0"=>' ', // nbsp
+		"\xc2\xad"=>'', // soft hyphen
+		"\xc2\xa1"=>'!',"\xc2\xa2"=>'c',"\xc2\xa3"=>"GBP","\xc2\xa5"=>"JPY",
+		"\xc2\xa6"=>'|',"\xc2\xa9"=>'(C)',"\xc2\xab"=>'<<',"\xc2\xae"=>'(R)',
+		"\xc2\xb0"=>'deg',"\xc2\xb1"=>'+/-',"\xc2\xb5"=>'mu',"\xc2\xb7"=>'.',"\xc2\xbb"=>'>>',
+		"\xc2\xbc"=>'1/4',"\xc2\xbd"=>'1/2',"\xc2\xbe"=>'3/4',"\xc2\xbf"=>'?',
 		// latin 1
-		"\xc3\x80"=>"a","\xc3\x81"=>"a","\xc3\x82"=>"a","\xc3\x83"=>"a","\xc3\x84"=>"a",
-		"\xc3\x85"=>"a","\xc3\x86"=>"e","\xc3\x87"=>"c","\xc3\x88"=>"e","\xc3\x89"=>"e",
-		"\xc3\x8a"=>"e","\xc3\x8b"=>"e","\xc3\x8c"=>"i","\xc3\x8d"=>"i","\xc3\x8e"=>"i",
-		"\xc3\x8f"=>"i","\xc3\x90"=>"d","\xc3\x91"=>"n","\xc3\x92"=>"o","\xc3\x93"=>"o",
-		"\xc3\x94"=>"o","\xc3\x95"=>"o","\xc3\x96"=>"o","\xc3\x98"=>"o","\xc3\x99"=>"u",
-		"\xc3\x9a"=>"u","\xc3\x9b"=>"u","\xc3\x9c"=>"u","\xc3\x9d"=>"y","\xc3\x9e"=>"th",
+		"\xc3\x80"=>"A","\xc3\x81"=>"A","\xc3\x82"=>"A","\xc3\x83"=>"A","\xc3\x84"=>"A",
+		"\xc3\x85"=>"A","\xc3\x86"=>"E","\xc3\x87"=>"C","\xc3\x88"=>"E","\xc3\x89"=>"E",
+		"\xc3\x8a"=>"E","\xc3\x8b"=>"E","\xc3\x8c"=>"I","\xc3\x8d"=>"I","\xc3\x8e"=>"I",
+		"\xc3\x8f"=>"I","\xc3\x90"=>"D","\xc3\x91"=>"N","\xc3\x92"=>"O","\xc3\x93"=>"O",
+		"\xc3\x94"=>"O","\xc3\x95"=>"O","\xc3\x96"=>"O","\xc3\x98"=>"O","\xc3\x99"=>"U",
+		"\xc3\x9a"=>"U","\xc3\x9b"=>"U","\xc3\x9c"=>"U","\xc3\x9d"=>"Y","\xc3\x9e"=>"TH",
 		"\xc3\x9f"=>"ss","\xc3\xa0"=>"a","\xc3\xa1"=>"a","\xc3\xa2"=>"a",
 		"\xc3\xa3"=>"a","\xc3\xa4"=>"a","\xc3\xa5"=>"a","\xc3\xa6"=>"e","\xc3\xa7"=>"c",
 		"\xc3\xa8"=>"e","\xc3\xa9"=>"e","\xc3\xaa"=>"e","\xc3\xab"=>"e","\xc3\xac"=>"i",
@@ -197,21 +213,21 @@ class textnormal
 		"\xc3\xb8"=>"o","\xc3\xb9"=>"u","\xc3\xba"=>"u","\xc3\xbb"=>"u","\xc3\xbc"=>"u",
 		"\xc3\xbd"=>"y","\xc3\xbe"=>"th","\xc3\xbf"=>"y",
 		// latin ext-a
-		"\xc4\x80"=>"a","\xc4\x82"=>"a","\xc4\x84"=>"a","\xc4\x86"=>"c","\xc4\x88"=>"c",
-		"\xc4\x8a"=>"c","\xc4\x8c"=>"c","\xc4\x8e"=>"d","\xc4\x90"=>"d","\xc4\x92"=>"e",
-		"\xc4\x94"=>"e","\xc4\x96"=>"e","\xc4\x98"=>"e","\xc4\x9a"=>"e","\xc4\x9c"=>"g",
-		"\xc4\x9e"=>"g","\xc4\xa0"=>"g","\xc4\xa2"=>"g","\xc4\xa4"=>"h","\xc4\xa6"=>"h",
-		"\xc4\xa8"=>"i","\xc4\xaa"=>"i","\xc4\xac"=>"i","\xc4\xae"=>"i","\xc4\xb0"=>"i",
-		"\xc4\xb2"=>"ij","\xc4\xb4"=>"j","\xc4\xb6"=>"k","\xc4\xb9"=>"l","\xc4\xbb"=>"l",
-		"\xc4\xbd"=>"l","\xc4\xbf"=>"l","\xc5\x81"=>"l","\xc5\x83"=>"n","\xc5\x85"=>"n",
-		"\xc5\x87"=>"n","\xc5\x8a"=>"n","\xc5\x8c"=>"o","\xc5\x8e"=>"o","\xc5\x90"=>"o",
-		"\xc5\x92"=>"oe","\xc5\x94"=>"r","\xc5\x96"=>"r","\xc5\x98"=>"r","\xc5\x9a"=>"s",
-		"\xc5\x9c"=>"s","\xc5\x9e"=>"s","\xc5\xa0"=>"s","\xc5\xa2"=>"t","\xc5\xa4"=>"t",
-		"\xc5\xa6"=>"t","\xc5\xa8"=>"u","\xc5\xaa"=>"u","\xc5\xac"=>"u","\xc5\xae"=>"u",
-		"\xc5\xb0"=>"u","\xc5\xb2"=>"u","\xc5\xb4"=>"w","\xc5\xb6"=>"y",
-		"\xc5\xb8"=>"y",
-		"\xc5\xb9"=>"z",
-		"\xc5\xbb"=>"z","\xc5\xbd"=>"z",
+		"\xc4\x80"=>"A","\xc4\x82"=>"A","\xc4\x84"=>"A","\xc4\x86"=>"C","\xc4\x88"=>"C",
+		"\xc4\x8a"=>"C","\xc4\x8c"=>"C","\xc4\x8e"=>"D","\xc4\x90"=>"D","\xc4\x92"=>"E",
+		"\xc4\x94"=>"E","\xc4\x96"=>"E","\xc4\x98"=>"E","\xc4\x9a"=>"E","\xc4\x9c"=>"G",
+		"\xc4\x9e"=>"G","\xc4\xa0"=>"G","\xc4\xa2"=>"G","\xc4\xa4"=>"H","\xc4\xa6"=>"H",
+		"\xc4\xa8"=>"I","\xc4\xaa"=>"I","\xc4\xac"=>"I","\xc4\xae"=>"I","\xc4\xb0"=>"I",
+		"\xc4\xb2"=>"IJ","\xc4\xb4"=>"J","\xc4\xb6"=>"K","\xc4\xb9"=>"L","\xc4\xbb"=>"L",
+		"\xc4\xbd"=>"L","\xc4\xbf"=>"L","\xc5\x81"=>"L","\xc5\x83"=>"N","\xc5\x85"=>"N",
+		"\xc5\x87"=>"N","\xc5\x8a"=>"N","\xc5\x8c"=>"O","\xc5\x8e"=>"O","\xc5\x90"=>"O",
+		"\xc5\x92"=>"OE","\xc5\x94"=>"R","\xc5\x96"=>"R","\xc5\x98"=>"R","\xc5\x9a"=>"S",
+		"\xc5\x9c"=>"S","\xc5\x9e"=>"S","\xc5\xa0"=>"S","\xc5\xa2"=>"T","\xc5\xa4"=>"T",
+		"\xc5\xa6"=>"T","\xc5\xa8"=>"U","\xc5\xaa"=>"U","\xc5\xac"=>"U","\xc5\xae"=>"U",
+		"\xc5\xb0"=>"U","\xc5\xb2"=>"U","\xc5\xb4"=>"W","\xc5\xb6"=>"Y",
+		"\xc5\xb8"=>"Y",
+		"\xc5\xb9"=>"Z",
+		"\xc5\xbb"=>"Z","\xc5\xbd"=>"Z",
 		"\xc4\x81"=>"a","\xc4\x83"=>"a",
 		"\xc4\x85"=>"a","\xc4\x87"=>"c","\xc4\x89"=>"c","\xc4\x8b"=>"c","\xc4\x8d"=>"c",
 		"\xc4\x8f"=>"d","\xc4\x91"=>"d","\xc4\x93"=>"e","\xc4\x95"=>"e","\xc4\x97"=>"e",
@@ -228,30 +244,34 @@ class textnormal
 		"\xc5\xbc"=>"z","\xc5\xbe"=>"z","\xc5\xbf"=>"s",
 		// latin ext-b (WGL-4 only)
 		"\xc6\x92"=>"f",
-		"\xc7\xba"=>"a","\xc7\xbc"=>"e","\xc7\xbe"=>"o",
+		"\xc7\xba"=>"A","\xc7\xbc"=>"E","\xc7\xbe"=>"O",
 		"\xc7\xbb"=>"a","\xc7\xbd"=>"e","\xc7\xbf"=>"o",
-		// latin ext-additional (WGL-4 only)
-		"\xe1\xba\x80"=>"w","\xe1\xba\x81"=>"w","\xe1\xba\x82"=>"w","\xe1\xba\x83"=>"w",
-		"\xe1\xba\x84"=>"w","\xe1\xba\x85"=>"w",
-		"\xe1\xbb\xb2"=>"y","\xe1\xbb\xb3"=>"y",
-		// space
-		"\xc2\xa0"=>' ',
-		// hyphen
-		"\xe2\x80\x90"=>'-',"\xe2\x80\x91"=>'-',
-		// soft hyphen
-		"\xc2\xad"=>'',
-		// common dashes
-		"\xe2\x80\x94"=>' - ',
-		// apostrophe
-		"\xe2\x80\x99"=>"'",
-	);
-
-
-	private static $combiningmarkstable = array(
 		// modifier letters (WGL-4)
 		"\xcb\x86"=>"","\xcb\x87"=>"","\xcb\x89"=>"",
 		"\xcb\x98"=>"","\xcb\x99"=>"","\xcb\x9a"=>"","\xcb\x9b"=>"","\xcb\x9c"=>"","\xcb\x9d"=>"",
+		// latin ext-additional (WGL-4 only)
+		"\xe1\xba\x80"=>"W","\xe1\xba\x81"=>"w","\xe1\xba\x82"=>"W","\xe1\xba\x83"=>"w",
+		"\xe1\xba\x84"=>"W","\xe1\xba\x85"=>"w",
+		"\xe1\xbb\xb2"=>"Y","\xe1\xbb\xb3"=>"y",
+		// general punc
+		"\xe2\x80\x93"=>' - ',"\xe2\x80\x94"=>' - ',"\xe2\x80\x95"=>' - ',
+		"\xe2\x80\x98"=>"'","\xe2\x80\x99"=>"'","\xe2\x80\x9c"=>'"',"\xe2\x80\x9d"=>'"',
+		"\xe2\x80\xa2"=>'*',"\xe2\x80\xa6"=>'...',
+		"\xe2\x80\xb2"=>"'","\xe2\x80\xb3"=>'"',
+		"\xe2\x80\xb9"=>'<',"\xe2\x80\xba"=>'>',"\xe2\x80\xbc"=>'!!',
+		"\xe2\x81\x84"=>'/',
+		// currency
+		"\xe2\x82\xa3"=>'FRF',"\xe2\x82\xa4"=>"Lira","\xe2\x82\xa7"=>"ESP",
+		"\xe2\x82\xac"=>'EUR',
+		// number forms
+		"\xe2\x85\x9b"=>'1/8',"\xe2\x85\x9c"=>'3/8',"\xe2\x85\x9d"=>'5/8',"\xe2\x85\x9e"=>'7/8',
+		// math
+		"\xe2\x88\x92"=>'-',"\xe2\x88\x95"=>'/',
+
+	);
+
 /*
+	private static $combiningmarkstable = array(
 		"\xcc\x80"=>"","\xcc\x81"=>"","\xcc\x82"=>"","\xcc\x83"=>"","\xcc\x84"=>"",
 		"\xcc\x85"=>"","\xcc\x86"=>"","\xcc\x87"=>"","\xcc\x88"=>"","\xcc\x89"=>"",
 		"\xcc\x8a"=>"","\xcc\x8b"=>"","\xcc\x8c"=>"","\xcc\x8d"=>"","\xcc\x8e"=>"",
@@ -275,8 +295,8 @@ class textnormal
 		"\xcd\xa4"=>"","\xcd\xa5"=>"","\xcd\xa6"=>"","\xcd\xa7"=>"","\xcd\xa8"=>"",
 		"\xcd\xa9"=>"","\xcd\xaa"=>"","\xcd\xab"=>"","\xcd\xac"=>"","\xcd\xad"=>"",
 		"\xcd\xae"=>"","\xcd\xaf"=>""
- */
 	);
+ */
 	
 	private static $shortlowertable = array(
 		// latin-1 only
