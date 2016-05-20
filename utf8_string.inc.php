@@ -77,7 +77,7 @@ class utf8 {
 			}
 			 */
 
-			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]+/u', '', $str);
+			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]+/Su', '', $str);
 		}
 
 		return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
