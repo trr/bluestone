@@ -110,7 +110,7 @@ class textnormal
 		// converts everything down to:
 		// - lowercase letters (a to z)
 		// - digits (0 to 9)
-		// - apostrophe ('), period (.), hyphen/minus (-), underscore (_) and comma (,)
+		// - apostrophe ('), period (.), hyphen/minus (-) and comma (,)
 		//   when they occur as part of a word or number
 		// - space (multiple spaces become one)
 		// - any additional ascii characters specified in $extra
@@ -138,7 +138,7 @@ class textnormal
 			| (?<![a-z0-9])-(?![.0-9])
 			| (?<=[a-z0-9])-(?![a-z0-9])
 			/Sx', ' ', $str);
-		$str = preg_replace('/[^a-z0-9' . preg_quote($extra, '/') . ',.\'\-_]+/S', ' ', $str);
+		$str = preg_replace('/[^a-z0-9' . preg_quote($extra, '/') . ',.\'\-]+/S', ' ', $str);
 
 		return trim($str);
 	}
