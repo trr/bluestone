@@ -39,16 +39,18 @@ class textnormal
 	// ############## Deprecated interface ##################
 	private $string, $apos = "'";
 	function __construct($string = NULL, $filter = true) {
-		require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
-		$this->string = $filter ? utf8::filter($string) : $string;
+		if ($filter) {
+			require_once(BLUESTONE_DIR . '/utf8_string.inc.php');
+			$this->string = utf8::filter($string);
+		} else $this->string = $string;
 	}
 	public function normal($chars = true, $spaces = true, $dashes = true, $punc = true) {
-		if ($chars && $spaces && $punc) $str = self::asciinormal($this->string);
-		else {
-			$str = $chars ? self::chars($this->string) : $this->string;
-			if ($spaces) $str = self::spaces($str);
-		}
-		if (!$dashes) $str = str_replace('-', ' ', $str);
+		$str = $this->string;
+		if ($chars) $str = self::characters($str, true);
+		if ($spaces && $punc) {
+			$str = self::wordsep($str);
+			if (!$dashes) $str = str_replace('-', ' ', $str);
+		} elseif ($spaces) $str = self::spaces($str);
 		if ($this->apos != "'") $str = str_replace("'", $apos, $str);
 		return $str;
 	}
@@ -83,66 +85,64 @@ class textnormal
 		return trim($str);
 	}
 
-	public static function asciify($str, $filter = true) {
+	public static function characters($str, $lowercase = true) {
 	// transliterates Unicode characters (including all latin letters in WGL-4)
 	// into ascii
-	// If $filter is left true, will strip any unhandled chars - result
-	// will be valid ASCII
-	// If false, will leave them - result may include multi-byte UTF characters
-
+	// if $lowercase is true, it also converts them to lowercase
+	// otherwise converts them to ascii equivalent of same case
+		
 		// UTF starting bytes which can be folded
-		$tmp = strtr($str, "\xc2\xc3\xc4\xc5\xc6\xc7\xcb\xe1\xe2", "\xf8\xf8\xf9\xf9\xf9\xf9\xf9\xf9\xf9");
+		$tmp = strtr($str, "\xc2\xc3\xc4\xc5\xc6\xc7\xcb\xe1", "\xf8\xf8\xf9\xf9\xf9\xf9\xf9\xf9");
 
 		if ($tmp !== $str) {
-			// if there are no c4-c7, cb, e1-e2 then we can use a shorter, faster table
-			if (strpos($tmp, "\xf9") !== false)
-				$str = strtr($str, self::$normalletterstable);
-			else
+			// if there are no c4-c7, cb, e1 then we can use a shorter, faster table
+			if (strpos($tmp, "\xf9") === false) {
 				$str = strtr($str, self::$shortnormaltable);
+			}
+			else
+				$str = strtr($str, self::$normalletterstable);
 		}
-		if ($filter)
-			$str = preg_replace('/[^\x20-\x7e\x0a\x0d\x09]+/S', '', $str);
+		if ($lowercase)
+			$str = strtr($str,
+				'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+				'abcdefghijklmnopqrstuvwxyz');
 
 		return $str;
 	}
 
-	public static function asciinormal($str, $extra = '') {
-		// converts everything down to:
-		// - lowercase letters (a to z)
-		// - digits (0 to 9)
-		// - apostrophe ('), period (.), hyphen/minus (-) and comma (,)
-		//   when they occur as part of a word or number
-		// - space (multiple spaces become one)
-		// - any additional ascii characters specified in $extra
-		// This converts latin-based Unicode letters in WGL-4
-		// and converts some other unicode forms of hyphen and apostrophe
-		// Designed to be FAST
-		// NOT suitable for non-latin languages (outside WGL-4, or greek/cyrillic in WGL-4)
-		// and some of the transliterations may be english specific (eg sharp s to ss)
+	public static function wordsep($str) {
+	// returns only the words from the input string, separated by single spaces
+	// punctuation is removed, with exceptions:
+	//   - hyphens, periods and apostrophes in words are allowed
+	//   - hyphen and period allowed at start of number, comma allowed within number
+
+		$str = strtr($str, 
+			"\r\n\t\v\f!\"#\$%&()*+/:;<=>?@[\]^_`{|}~",
+			'                                 ');
+		if (strpos($str, "\xe2") !== false)
+			$str = preg_replace('/\xe2[\x80-\xaf][\x80-\xbf]/S', ' ',
+				str_replace("\xe2\x80\x99", "'", str_replace("\xe2\x80\x90", '-', $str))); //todo is x2010 hyphen common?
+		if (strpos($str, "\xc2") !== false)
+			$str = preg_replace('/\xc2[\x80-\xbf]/S', ' ', str_replace("\xc2\xad", '', $str));
+		if (strpos($str, "\xc3") !== false)
+			$str = str_replace("\xc3\xb7", ' ', str_replace("\xc3\x97", ' ', $str));
 		
-		$str = strtr(self::asciify($str, false),
-			'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-			'abcdefghijklmnopqrstuvwxyz');
-
-		// preserved chars
-		// . and - need to proceed a number or . OR come between two alphanums
-		// all others (eg ' and _) need to come between two alphanums
-
-		// these two operations separately were faster than combining them
 		$str = preg_replace('/
-			[.\'](?![a-z0-9])
+			[.\'](?![^ ,.\-\'])
 			| ,(?![0-9])
+			| (?<=[^ ,.\-\'])-(?![^ ,.\-\'])
 			| (?<![0-9]),
-			| (?<![a-z0-9])\'
-			| (?<![a-z0-9])\.(?![0-9])
-			| (?<![a-z0-9])-(?![.0-9])
-			| (?<=[a-z0-9])-(?![a-z0-9])
+			| (?<![^ ,.\-\'])\'
+			| (?<![^ ,.\-\'])\.(?![0-9])
+			| (?<![^ ,.\-\'])-(?![.0-9])
 			/Sx', ' ', $str);
-		$str = preg_replace('/[^a-z0-9' . preg_quote($extra, '/') . ',.\'\-]+/S', ' ', $str);
+
+		while ($str !== ($tmp = str_replace('  ', ' ', $str)))
+			$str = $tmp;
 
 		return trim($str);
 	}
-	
+
 	public function naturalsortindex($normaliseletters = true)
 	{
 		$webchars = $this->webchars;
@@ -170,10 +170,6 @@ class textnormal
 		// latin-1 punc
 		"\xc2\xa0"=>' ', // nbsp
 		"\xc2\xad"=>'', // soft hyphen
-		"\xc2\xa1"=>'!',"\xc2\xa2"=>'c',"\xc2\xa3"=>"GBP","\xc2\xa5"=>"JPY",
-		"\xc2\xa6"=>'|',"\xc2\xa9"=>'(C)',"\xc2\xab"=>'<<',"\xc2\xae"=>'(R)',
-		"\xc2\xb0"=>'deg',"\xc2\xb1"=>'+/-',"\xc2\xb5"=>'mu',"\xc2\xb7"=>'.',"\xc2\xbb"=>'>>',
-		"\xc2\xbc"=>'1/4',"\xc2\xbd"=>'1/2',"\xc2\xbe"=>'3/4',"\xc2\xbf"=>'?',
 		// latin 1
 		"\xc3\x80"=>"A","\xc3\x81"=>"A","\xc3\x82"=>"A","\xc3\x83"=>"A","\xc3\x84"=>"A",
 		"\xc3\x85"=>"A","\xc3\x86"=>"E","\xc3\x87"=>"C","\xc3\x88"=>"E","\xc3\x89"=>"E",
@@ -194,10 +190,6 @@ class textnormal
 		// latin-1 punc
 		"\xc2\xa0"=>' ', // nbsp
 		"\xc2\xad"=>'', // soft hyphen
-		"\xc2\xa1"=>'!',"\xc2\xa2"=>'c',"\xc2\xa3"=>"GBP","\xc2\xa5"=>"JPY",
-		"\xc2\xa6"=>'|',"\xc2\xa9"=>'(C)',"\xc2\xab"=>'<<',"\xc2\xae"=>'(R)',
-		"\xc2\xb0"=>'deg',"\xc2\xb1"=>'+/-',"\xc2\xb5"=>'mu',"\xc2\xb7"=>'.',"\xc2\xbb"=>'>>',
-		"\xc2\xbc"=>'1/4',"\xc2\xbd"=>'1/2',"\xc2\xbe"=>'3/4',"\xc2\xbf"=>'?',
 		// latin 1
 		"\xc3\x80"=>"A","\xc3\x81"=>"A","\xc3\x82"=>"A","\xc3\x83"=>"A","\xc3\x84"=>"A",
 		"\xc3\x85"=>"A","\xc3\x86"=>"E","\xc3\x87"=>"C","\xc3\x88"=>"E","\xc3\x89"=>"E",
@@ -253,6 +245,18 @@ class textnormal
 		"\xe1\xba\x80"=>"W","\xe1\xba\x81"=>"w","\xe1\xba\x82"=>"W","\xe1\xba\x83"=>"w",
 		"\xe1\xba\x84"=>"W","\xe1\xba\x85"=>"w",
 		"\xe1\xbb\xb2"=>"Y","\xe1\xbb\xb3"=>"y",
+	);
+
+	/*
+	private static $asciifylower = array(
+		// latin-1
+		"\xc2\xa1"=>'!',"\xc2\xa2"=>'c',"\xc2\xa3"=>"GBP","\xc2\xa5"=>"JPY",
+		"\xc2\xa6"=>'|',"\xc2\xa9"=>'(C)',"\xc2\xab"=>'<<',"\xc2\xae"=>'(R)',
+		"\xc2\xb0"=>'deg',"\xc2\xb1"=>'+/-',"\xc2\xb5"=>'mu',"\xc2\xb7"=>'.',"\xc2\xbb"=>'>>',
+		"\xc2\xbc"=>'1/4',"\xc2\xbd"=>'1/2',"\xc2\xbe"=>'3/4',"\xc2\xbf"=>'?',
+	);
+
+	private static $asciifyhigher = array(
 		// general punc
 		"\xe2\x80\x93"=>' - ',"\xe2\x80\x94"=>' - ',"\xe2\x80\x95"=>' - ',
 		"\xe2\x80\x98"=>"'","\xe2\x80\x99"=>"'","\xe2\x80\x9c"=>'"',"\xe2\x80\x9d"=>'"',
@@ -267,9 +271,8 @@ class textnormal
 		"\xe2\x85\x9b"=>'1/8',"\xe2\x85\x9c"=>'3/8',"\xe2\x85\x9d"=>'5/8',"\xe2\x85\x9e"=>'7/8',
 		// math
 		"\xe2\x88\x92"=>'-',"\xe2\x88\x95"=>'/',
-
 	);
-
+	 */
 	
 	private static $shortlowertable = array(
 		// latin-1 only
