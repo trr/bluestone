@@ -78,27 +78,20 @@ class dblite extends SQLite3 {
 		}
 		
 		foreach ($flat as $id => $val) if ($id != 0) {
-			$type = gettype($val);
-			switch ($type) {
-			case 'integer':
-			case 'boolean':
+
+			if (is_int($val) || is_bool($val))
 				$statement->bindValue($id, $val, SQLITE3_INTEGER);
-				break;
-			case 'string':
-				// strings that are valid UTF-8 are saved as text, otherwise blobs, there is a small chance of problem
-				// if you intend something as a blob and by coincidence it happens to be valid UTF-8
-				$statement->bindValue($id, $val, preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $val) ?
+			elseif (is_string($val))
+			// strings that are valid UTF-8 are saved as text, otherwise blobs, there is a small chance of problem
+			// if you intend something as a blob and by coincidence it happens to be valid UTF-8
+				$statement->bindValue($id, $val, $val == '' || preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $val) ?
 					SQLITE3_TEXT : SQLITE3_BLOB);
-				break;
-			case 'NULL':
+			elseif (is_null($val))
 				$statement->bindValue($id, $val, SQLITE3_NULL);
-				break;
-			case 'double':
+			elseif (is_float($val))
 				$statement->bindValue($id, $val, SQLITE3_FLOAT);
-				break;
-			default:
+			else
 				throw new Exception('Unknown variable type');
-			}
 
 		}
 		return $statement->execute();
