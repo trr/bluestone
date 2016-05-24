@@ -110,15 +110,19 @@ class textnormal
 		return $str;
 	}
 
-	public static function wordsep($str) {
+	public static function wordsep($str, $except = '') {
 	// returns only the words from the input string, separated by single spaces
 	// punctuation is removed, with exceptions:
 	//   - hyphens, periods and apostrophes in words are allowed
 	//   - hyphen and period allowed at start of number, comma allowed within number
+	//   - any characters supplied in $except won't be removed
+	// $except can only take ASCII punctuation or control chars, and can't accept 
+	// hyphens, periods, apostrophes or commas, which get special treatment
 
-		$str = strtr($str, 
-			"\r\n\t\v\f!\"#\$%&()*+/:;<=>?@[\]^_`{|}~",
-			'                                 ');
+		$replace = "\r\n\t\v\f!\"#\$%&()*+/:;<=>?@[\]^_`{|}~";
+		if ($except) $replace = strtr($replace, $except, '                                 ');
+
+		$str = strtr($str, $replace, '                                 ');
 		if (strpos($str, "\xe2") !== false)
 			$str = preg_replace('/\xe2[\x80-\xaf][\x80-\xbf]/S', ' ',
 				str_replace("\xe2\x80\x99", "'", str_replace("\xe2\x80\x90", '-', $str))); //todo is x2010 hyphen common?
