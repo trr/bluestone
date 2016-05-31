@@ -57,11 +57,19 @@ class dblite extends SQLite3 {
 		if (func_num_args() <= 1) 
 			return parent::query($str);
 
-		$extra = array_slice(func_get_args(), 1);
+		$input = array_slice(func_get_args(), 1);
 		$flat = array(0 => null);
-		array_walk_recursive($extra, function($val, $key) use (&$flat) {
-			$flat[] = $val;
-		});
+
+		foreach ($input as $k1 => $v1) {
+			if (!is_array($v1)) $flat[] = $v1;
+			else foreach ($v1 as $k2 => $v2) {
+				if (!is_array($v2)) $flat[] = $v2;
+				else foreach ($v2 as $k3 => $v3) {
+					if (!is_array($v3)) $flat[] = $v3;
+					else throw new Exception('>3 levels of array not supported');
+				}
+			}
+		}
 
 		$hash = hash('ripemd160', $str);
 		if (isset($this->statements[$hash])) {
@@ -73,21 +81,23 @@ class dblite extends SQLite3 {
 			$statement = parent::prepare($str);
 			$this->statements[$hash] = $statement;
 
-			if (count($this->statements) == 6)
+			if (count($this->statements) == 11)
 				array_shift($this->statements);
 		}
 		
 		foreach ($flat as $id => $val) if ($id != 0) {
 
-			if (is_int($val) || is_bool($val))
+			if (is_int($val))
 				$statement->bindValue($id, $val, SQLITE3_INTEGER);
 			elseif (is_string($val))
 			// strings that are valid UTF-8 are saved as text, otherwise blobs, there is a small chance of problem
 			// if you intend something as a blob and by coincidence it happens to be valid UTF-8
-				$statement->bindValue($id, $val, $val == '' || preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $val) ?
+				$statement->bindValue($id, $val, ($val == '' || preg_match('/^/u', $val)) ?
 					SQLITE3_TEXT : SQLITE3_BLOB);
 			elseif (is_null($val))
 				$statement->bindValue($id, $val, SQLITE3_NULL);
+			elseif (is_bool($val))
+				$statement->bindValue($id, $val ? 1 : 0, SQLITE3_INTEGER);
 			elseif (is_float($val))
 				$statement->bindValue($id, $val, SQLITE3_FLOAT);
 			else
