@@ -32,6 +32,7 @@
 class dblite extends SQLite3 {
 
 	private $statements = array();
+	private $timeout = false;
 
 	static function valueString($arr) {
 	// creates a value string of question marks from a one- or more-dimensional array
@@ -54,6 +55,13 @@ class dblite extends SQLite3 {
 		// eg $dblite->query("SELECT * FROM a WHERE b = ?", $myvalue);
 		// extra params can include arrays to bind all their members
 		// named parameters are not supported, only numbered (eg question marks)
+
+		// set busy timeout so this db is usable in web environment
+		if (!$this->timeout) {
+			$this->busyTimeout(15000);
+			$this->timeout = true;
+		}
+
 		if (func_num_args() <= 1) 
 			return parent::query($str);
 
