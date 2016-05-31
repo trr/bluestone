@@ -57,10 +57,7 @@ class dblite extends SQLite3 {
 		// named parameters are not supported, only numbered (eg question marks)
 
 		// set busy timeout so this db is usable in web environment
-		if (!$this->timeout) {
-			$this->busyTimeout(15000);
-			$this->timeout = true;
-		}
+		if (!$this->timeout) $this->busyTimeout(15000);
 
 		if (func_num_args() <= 1) 
 			return parent::query($str);
@@ -128,6 +125,11 @@ class dblite extends SQLite3 {
 			return $result->fetchArray(SQLITE3_NUM)[0];
 
 		return $result->fetchArray(SQLITE3_ASSOC);
+	}
+
+	function busyTimeout($msec) {
+		$this->timeout = true;
+		return parent::busyTimeout($msec);
 	}
 
 }
