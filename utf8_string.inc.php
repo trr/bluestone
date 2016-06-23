@@ -58,34 +58,17 @@ class utf8 {
 		if (preg_match('/^[\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]*$/u', $str))
 			return $str;
 
-		if (preg_match('//u', $str)) {
-			// if it is valid UTF8 with control codes/noncharacters, filter
-
-			// do we have code points in C1 that would be valid CP-1252?
-			/*
-			if (strpos($str, "\xc2") !== false) {
-				$str = strtr($str, array(
-					"\xC2\x80"=>"\xE2\x82\xAC","\xC2\x82"=>"\xE2\x80\x9A","\xC2\x83"=>"\xC6\x92",
-					"\xC2\x84"=>"\xE2\x80\x9E","\xC2\x85"=>"\xE2\x80\xA6","\xC2\x86"=>"\xE2\x80\xA0",
-					"\xC2\x87"=>"\xE2\x80\xA1","\xC2\x88"=>"\xCB\x86","\xC2\x89"=>"\xE2\x80\xB0",
-					"\xC2\x8A"=>"\xC5\xA0","\xC2\x8B"=>"\xE2\x80\xB9","\xC2\x8C"=>"\xC5\x92",
-					"\xC2\x8E"=>"\xC5\xBD","\xC2\x91"=>"\xE2\x80\x98","\xC2\x92"=>"\xE2\x80\x99",
-					"\xC2\x93"=>"\xE2\x80\x9C","\xC2\x94"=>"\xE2\x80\x9D","\xC2\x95"=>"\xE2\x80\xA2",
-					"\xC2\x96"=>"\xE2\x80\x93","\xC2\x97"=>"\xE2\x80\x94","\xC2\x98"=>"\xCB\x9C",
-					"\xC2\x99"=>"\xE2\x84\xA2","\xC2\x9A"=>"\xC5\xA1","\xC2\x9B"=>"\xE2\x80\xBA",
-					"\xC2\x9C"=>"\xC5\x93","\xC2\x9E"=>"\xC5\xBE","\xC2\x9F"=>"\xC5\xB8"));
-			}
-			 */
-
+		// if it is valid UTF8 with control codes/noncharacters, filter
+		if (preg_match('//u', $str))
 			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]+/Su', '', $str);
-		}
 
-		// iconv seems not to be particularly portable; fails on some systems
-		// this is an alternative way of converting CP1252 to UTF-8
-		$str = utf8_encode($str);
+		// is latin-1?
+		if (preg_match('/^[\x00-\x7f\xa0-\xff]*$/', $str))
+			return self::filter(utf8_encode($str));
 
-		if (strpos($str, "\xc2") !== false)
-			$str = strtr($str, array(
+		// is CP1252?
+		if (preg_match('/^[\x00-\x80\x9e-\xff\x91-\x9c\x82-\x8c\x8e]*$/', $str))
+			return self::filter(strtr(utf8_encode($str), array(
 				"\xC2\x80"=>"\xE2\x82\xAC","\xC2\x82"=>"\xE2\x80\x9A","\xC2\x83"=>"\xC6\x92",
 				"\xC2\x84"=>"\xE2\x80\x9E","\xC2\x85"=>"\xE2\x80\xA6","\xC2\x86"=>"\xE2\x80\xA0",
 				"\xC2\x87"=>"\xE2\x80\xA1","\xC2\x88"=>"\xCB\x86","\xC2\x89"=>"\xE2\x80\xB0",
@@ -94,10 +77,11 @@ class utf8 {
 				"\xC2\x93"=>"\xE2\x80\x9C","\xC2\x94"=>"\xE2\x80\x9D","\xC2\x95"=>"\xE2\x80\xA2",
 				"\xC2\x96"=>"\xE2\x80\x93","\xC2\x97"=>"\xE2\x80\x94","\xC2\x98"=>"\xCB\x9C",
 				"\xC2\x99"=>"\xE2\x84\xA2","\xC2\x9A"=>"\xC5\xA1","\xC2\x9B"=>"\xE2\x80\xBA",
-				"\xC2\x9C"=>"\xC5\x93","\xC2\x9E"=>"\xC5\xBE","\xC2\x9F"=>"\xC5\xB8"));
+				"\xC2\x9C"=>"\xC5\x93","\xC2\x9E"=>"\xC5\xBE","\xC2\x9F"=>"\xC5\xB8")));
 
-		return self::filter($str);
+		return preg_replace('/[^\x20-\x7e\x0a\x0d\x09]+/', '', $str);
 
+		// NOTE: tried iconf, but it seems not to be particularly portable; fails on some systems
 		//return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
 	}
 	
