@@ -80,7 +80,13 @@ class utf8 {
 			return preg_replace('/[^\x20-\x7e\x0a\x0d\x09\PC\p{Cf}\p{Co}]+/Su', '', $str);
 		}
 
-		return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
+		// the '//IGNORE' option returns an error on some versions of PHP 5.4
+
+		return self::filter(iconv('CP1252', 'UTF-8',
+			preg_replace('/[^\x20-\x80\x9e-\xff\x0a\x0d\x09\x91-\x9c\x82-\x8c\x8e]/', '', $str)
+			));
+
+		//return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
 	}
 	
 	public static function convertdoubleutf8($str)
