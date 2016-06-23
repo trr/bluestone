@@ -79,7 +79,7 @@ class utf8 {
 				"\xC2\x99"=>"\xE2\x84\xA2","\xC2\x9A"=>"\xC5\xA1","\xC2\x9B"=>"\xE2\x80\xBA",
 				"\xC2\x9C"=>"\xC5\x93","\xC2\x9E"=>"\xC5\xBE","\xC2\x9F"=>"\xC5\xB8")));
 
-		return preg_replace('/[^\x20-\x7e\x0a\x0d\x09]+/', '', $str);
+		return preg_replace('/[^\x20-\x7e\x0a\x0d\x09]+/S', '', $str);
 
 		// NOTE: tried iconf, but it seems not to be particularly portable; fails on some systems
 		//return self::filter(iconv('CP1252', 'UTF-8//IGNORE', $str));
