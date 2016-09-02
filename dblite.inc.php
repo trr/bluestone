@@ -127,6 +127,76 @@ class dblite extends SQLite3 {
 		return $result->fetchArray(SQLITE3_ASSOC);
 	}
 
+	private static function quotenames($names) {
+		// names can be a multidimensional array
+		$result = array();
+
+		foreach ($names as $k1 => $v1) {
+			if (!is_array($v1)) $result[$k1] = '"' . str_replace('"', '""', $v1) . '"';
+			else foreach ($v1 as $k2 => $v2) {
+				if (!is_array($v2)) $result[$k1][$k2] = '"' . str_replace('"', '""', $v2) . '"';
+				else foreach ($v2 as $k3 => $v3) {
+					if (!is_array($v3)) $result[$k1][$k2][$k3] = '"' . str_replace('"', '""', $v3) . '"';
+					else throw new Exception('>3 levels of array not supported');
+				}
+			}
+		}
+		return $result;
+	}
+
+	// The insert/update/select/selectSingle functions are shortcut functions enabling a small
+	// number of basic operations without needing to build SQL.  They are intended to speed
+	// up development rather than provide any new functionality.  They are the equivalent of
+	// using particular SQL queries.
+
+	function insert($table, $values) {
+		// insert new row. $values must be array of ($key => $value)
+
+		$quoted = self::quotenames(array($table, array_keys($values)));
+		
+		return $this->query('INSERT INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
+			self::valueString($values),
+			$values);
+	}
+
+	function update($table, $where, $values) {
+
+		$quoted = self::quotenames(array($table, array_keys($where), array_keys($values)));
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+		$setstr = 'SET ' . implode('=?,', $quoted[2]) . '=?';
+
+		return $this->query('UPDATE ' . $quoted[0] . ' SET ' . $setstr . ' ' . $wherestr, $values, $where);
+	}
+
+	function select($table, $where, $columns = null) {
+		// where is an array of (colname => value), supports only simple matching
+		// selects single entry from table
+		// all entries in where must match (they are ANDed)
+		// if columns is null, returns all columns
+	
+		$quoted = self::quotenames(array($table, array_keys($where), $columns));
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+		$colstr = $columns === null ? '*' : implode(',', $quoted[2]);
+
+		return $this->query('SELECT ' . $colstr . ' FROM ' . $quoted[0] . ' ' . $wherestr, $where);
+	}
+
+	function selectSingle($table, $where, $columns = null, $wholerow = false) {
+		// where is an array of (colname => value), supports only simple matching
+		// selects single entry from table
+		// all entries in where must match (they are ANDed)
+		// if columns is null, returns all columns
+	
+		$quoted = self::quotenames(array($table, array_keys($where), $columns));
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+		$colstr = $columns === null ? '*' : implode(',', $quoted[2]);
+
+		return $this->querySingle('SELECT ' . $colstr . ' FROM ' . $quoted[0] . ' ' . $wherestr . ' LIMIT 1', $wholerow, $where);
+	}
+
 	function busyTimeout($msec) {
 		$this->timeout = true;
 		return parent::busyTimeout($msec);
