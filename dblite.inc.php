@@ -169,6 +169,15 @@ class dblite extends SQLite3 {
 		return $this->query('UPDATE ' . $quoted[0] . ' SET ' . $setstr . ' ' . $wherestr, $values, $where);
 	}
 
+	function delete($table, $where) {
+
+		$quoted = self::quotenames(array($table, array_keys($where)));
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+
+		return $this->query('DELETE FROM ' . $quoted[0] . ' ' . $wherestr, $where);
+	}
+
 	function select($table, $where, $columns = null) {
 		// where is an array of (colname => value), supports only simple matching
 		// selects single entry from table
