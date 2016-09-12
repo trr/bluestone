@@ -43,7 +43,6 @@ class db_connection
 {
 	private 
 		$connection,
-		$debug = null,
 		$statement,
 		$prefix = '',
 		$error;
@@ -76,11 +75,6 @@ class db_connection
 			("mysql:" . implode(';', $opts)) :
 			($dbsettings['dsn'] . ($opts ? ";".implode(';',$opts) : ''));
 
-		if (class_exists('debug')) {
-			$this->debug = &debug::getinstance();
-			$taskid = $this->debug->starttask('db_connection', 'Database connect');
-		}
-
 		// according to PDO, errors connecting always throw exceptions
 		$this->connection = new PDO(
 			$dsn,
@@ -91,8 +85,6 @@ class db_connection
 		// always do parameterisation client-side, faster when db latency is the bottleneck
 		$this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
 		$this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-
-		if ($this->debug) $this->debug->endtask($taskid);
 	}
 	
 	public function close()
@@ -120,10 +112,6 @@ class db_connection
 	// args should be an array of replaced values, but this function also accepts
 	// (deprecated) any number of args as individual arguments
 	{
-		// debugging
-		if ($this->debug)
-			$taskid = $this->debug->starttask('db_connection', 'Database query', $this->describe_query($query));
-
 		if ($this->statement)
 			$this->statement->closeCursor();
 
@@ -137,8 +125,6 @@ class db_connection
 		else {
 			$this->statement = $this->connection->query($query);
 		}
-
-		if ($this->debug) $this->debug->endtask($taskid);
 
 		return !empty($this->statement);
 	}
