@@ -32,178 +32,231 @@
 // A class for (low level) database abstraction
 
 // 20110623 - updated to use PDO rather than mysql backend & no longer mysql specific
+// 20160912 - updated to derive from PDO rather than encapsulate a PDO object
+//            now query() returns a statement object and so a preferred method of
+//            fetching now is to fetch from that, but old ::fetch_array() method is
+//            still there for backwards compatibility
+//            query() can take any combination of extra parameters now but only numbered,
+//            not named
 
 // REMOVED:
 //  num_rows() - this is not used, not useful and PDO doesn't have an equivalent
 //  $result parameter of fetch(), free_result() - not very useful and difficult with PDO
 //  persistent connections - not well supported with PDO < PHP 5.3, and have problems
 //  special trigger_error way of reporting errors - now all done with exceptions
+//  get_error() - never used
+//  get_dbtype() - never used
+//  get_dbversion() - never used
 
-class db_connection
+// DEPRECATED:
+//  close() - as long as the object exists the connection should remain open - set last
+//  reference to object to null to close
+//  is_connected() - see above
+//  begintransaction() - use PDO preferred capitalisation beginTransaction() instead
+//  fetch_array() - use ::fetch method of returned statement instead
+//  affected_rows() - use relevant method of returned statement instead
+//  free_result() - not necessary, plus we internally cache statements now anyway
+//  get_prefix() - will no longer be done at this level
+
+class db_connection extends PDO
 {
 	private 
-		$connection,
-		$statement,
-		$prefix = '',
-		$error;
+		$statements = [],
+		$laststatement = null,
+		$identquote = '"',
+		$prefix = ''; // deprecated
 
-	function __construct($dbsettings)
+	function __construct($dbsettings, $user = null, $pass = null, $extra = null) {
 	// tries to make a connection to the server.
 	// if an error occurs, is_connected() will return false and get_error() will return an error message
 	
-	// expects $dbsettings to be an array:
+	// backwards-compatible $dbsettings could be an array:
 	//  'server' => server hostname
 	//  'database' => database to choose
 	//  'user' => username of connection
 	//  'pass' => password of connection
 	//  'prefix' => table name prefix of connection - optional, defaults to ''
 	//  'charset' => charset of connection (eg 'utf8') - optional, default set by mysql?
-	{
-		if (isset($dbsettings['prefix']) && $dbsettings['prefix'] != '') {
-			// prefixes may now only contain the characters a-z, 0-9, A-Z, $, _ and unicode
-			if (!preg_match('/^[a-zA-Z0-9$_0x80-0xff]+$/', $dbsettings['prefix'])) 
-				throw new Exception('Invalid prefix');
-			$this->prefix = $dbsettings['prefix'];
+
+		if (is_array($dbsettings)) {
+
+			if (isset($dbsettings['prefix']) && preg_match('/^[a-zA-Z0-9$_0x80-0xff]+$/', $dbsettings['prefix'])) 
+				$this->prefix = $dbsettings['prefix'];
+			if (isset($dbsettings['user'])) $user = $dbsettings['user'];
+			if (isset($dbsettings['pass'])) $pass = $dbsettings['pass'];
+
+			$opts = [];
+			if (isset($dbsettings['database'])) $opts[] = "dbname=" . $dbsettings['database'];
+			if (isset($dbsettings['server'])) $opts[] = "host=" . $dbsettings['server'];
+			if (isset($dbsettings['charset'])) $opts[] = "charset=" . $dbsettings['charset'];
+
+			$dbsettings = empty($dbsettings['dsn']) ? 
+				("mysql:" . implode(';', $opts)) :
+				($dbsettings['dsn'] . ($opts ? ";".implode(';',$opts) : ''));
 		}
 
-		$opts = array();
-		if (isset($dbsettings['database'])) $opts[] = "dbname=" . $dbsettings['database'];
-		if (isset($dbsettings['server'])) $opts[] = "host=" . $dbsettings['server'];
-		if (isset($dbsettings['charset'])) $opts[] = "charset=" . $dbsettings['charset'];
-
-		$dsn = empty($dbsettings['dsn']) ? 
-			("mysql:" . implode(';', $opts)) :
-			($dbsettings['dsn'] . ($opts ? ";".implode(';',$opts) : ''));
+		if (preg_match('/^mysql:/i', $dbsettings)) $this->identquote = '`';
 
 		// according to PDO, errors connecting always throw exceptions
-		$this->connection = new PDO(
-			$dsn,
-			isset($dbsettings['user']) ? $dbsettings['user'] : null,
-			isset($dbsettings['pass']) ? $dbsettings['pass'] : null);
+		parent::__construct($dbsettings, $user, $pass, $extra);
 
-		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		$this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
 		// always do parameterisation client-side, faster when db latency is the bottleneck
-		$this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-		$this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-	}
-	
-	public function close()
-	// closes the database connection.
-	// returns false if there was no connection, true otherwise
-	{
-		if (!$this->connection) return false;
-			
-		if ($this->statement) {
-			$this->statement->closeCursor();
-			$this->statement = null;
-		}
-		$this->connection = null;
-		return true;
-	}
-	
-	public function is_connected()
-	// returns true if there is a connection, otherwise false
-	{
-		return !empty($this->connection);
+		$this->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+		$this->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 	}
 
-	public function query($query, $args = array())
+	private static function flattenArray($arr) {
+		$flat = [];
+
+		foreach ($arr as $v1) {
+			if (!is_array($v1)) $flat[] = $v1;
+			else foreach ($v1 as $v2) {
+				if (!is_array($v2)) $flat[] = $v2;
+				else $flat = array_merge($flat, self::flattenArray($v2));
+			}
+		}
+		return $flat;
+	}
+	
+	public function query($str)
 	// tries a query.	returns false if unsuccessful, or result resource if successful
 	// args should be an array of replaced values, but this function also accepts
 	// (deprecated) any number of args as individual arguments
 	{
-		if ($this->statement)
-			$this->statement->closeCursor();
+		$values = self::flattenArray(array_slice(func_get_args(), 1));
 
-		if (!is_array($args)) $args = array_slice(func_get_args(), 1);
-
-		if (!empty($args)) {
-			foreach ($args as $id => $arg) if (is_bool($arg)) $args[$id] = !empty($arg);
-			$this->statement = $this->connection->prepare($query);
-			$this->statement->execute($args);
+		// we cache recent statement objects so we can reuse existing statements
+		// matching the SQL text exactly without the application logic needing to
+		// be aware
+		$hash = hash('ripemd160', $str);
+		if (isset($this->statements[$hash])) {
+			$statement = $this->statements[$hash];
+			$statement->closeCursor(); // todo is this necessary, and does it matter if it's closed already?
 		}
 		else {
-			$this->statement = $this->connection->query($query);
+			$statement = parent::prepare($str);
+			$this->statements[$hash] = $statement;
+
+			if (count($this->statements) == 11)
+				array_shift($this->statements);
 		}
 
-		return !empty($this->statement);
+		$statement->execute($values);
+
+		$this->laststatement = $statement;
+
+		return $statement;
 	}
 	
-	public function query_single($query, $args = array())
+	public function querySingle($query) {
 	// tries a query.	fetches the first row and returns it as an array.	
 	// then frees the result.	therefore, should be a SELECT (or something that
 	// returns results, like a SHOW)
-	{
-		if (!is_array($args)) $args = array_slice(func_get_args(), 1);
+		$statement = call_user_func_array([$this, 'query'], func_get_args());
 
-		// call query() with same arguments
-		if ($this->query($query, $args)) {
-			$arr = $this->statement->fetch();
-			$this->statement->closeCursor();
-			$this->statement = null;
+		return $statement->fetch();
+	}
+
+	public function valueList($arr) {
+	// creates a value list with question marks from a one- or more-dimensional array
+	// one-dimensional arrays will result in string like '(?,?,?,?)'
+	// two-dimensional arrays will result in string like '(?,?),(?,?),(?,?)'
+	// and each child array in a parent is assumed to have the same number of values
+	// and no arrays can be empty
+		$first = reset($arr);
+		$repeat = count($arr) - 1;
+
+		if (!is_array($first))
+			return '(?' . str_repeat(',?', $repeat) . ')';
+
+		$val = $this->valueList($first);
+		return $val . str_repeat(',' . $val, $repeat);
+	}
+
+	private static function quoteNames($names) {
+
+		$q = $this->identquote;
+
+		foreach ($names as $key => $val) {
+			$names[$key] = !is_array($val) ? $q . str_replace($q, $q.$q, $val) . $q :
+				self::quoteNames($val);
 		}
-
-		return $arr;
+		return $names;
 	}
 
-	public function begintransaction() {
-		return $this->connection->beginTransaction();
-	}
-	
-	public function commit() {
-		return $this->connection->commit();
+	function insert($table, $values) {
+		// insert new row. $values must be array of ($key => $value)
+
+		$columns = !is_array(reset($values)) ? array_keys($values) : array_keys(reset($values));
+		$quoted = self::quoteNames([$table, $columns]);
+		
+		return $this->query('INSERT INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
+			self::valueList($values),
+			$values);
 	}
 
-	public function rollback() {
-		return $this->connection->rollback();
+	function update($table, $where, $values) {
+
+		$quoted = self::quoteNames([$table, array_keys($where), array_keys($values)]);
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+		$setstr = 'SET ' . implode('=?,', $quoted[2]) . '=?';
+
+		return $this->query('UPDATE ' . $quoted[0] . ' SET ' . $setstr . ' ' . $wherestr, $values, $where);
 	}
 
-	public function fetch_array($numeric = false)
-	{
-		return $this->statement->fetch();
-	}
-	
-	public function affected_rows()
-	// return the number of rows affected by the last query like DELETE, UPDATE...
-	{
-		return $this->statement->rowCount();
-	}
-	
-	public function free_result() {
-		$this->statement->closeCursor();
-		$this->statement = null;
-		return true;
-	}
-	
-	public function set_prefix($prefix)
-	// prefixes may now only contain the characters a-z, 0-9, A-Z, $, _ and unicode
-	{
-		if (!preg_match('/^[a-zA-Z0-9$_0x80-0xff]+$/', $dbsettings['prefix'])) 
-			throw new Exception('Invalid prefix');
-		$this->prefix = $dbsettings['prefix'];
-	}
-	
-	public function get_prefix() {
-		return $this->prefix;
-	}
-	
-	public function get_error() {
-		$info = $this->connection->errorInfo();
-		return $info ? $info[2] : null;
-	}
-	
-	public function get_dbtype() {
-		return $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
-	}
-	
-	public function get_dbversion() {
-		return $this->connection->getAttribute(PDO::ATTR_SERVER_VERSION);
-	}
-	
-	private function describe_query($query) {
-		return trim(preg_replace('$#.*?\n|set.*|value.*|\'.*|\s+$si', ' ', substr($query, 0, 72))) . '...';
+	function delete($table, $where) {
+
+		$quoted = self::quoteNames([$table, array_keys($where)]);
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+
+		return $this->query('DELETE FROM ' . $quoted[0] . ' ' . $wherestr, $where);
 	}
 
+	function select($table, $where, $columns = null) {
+		// where is an array of (colname => value), supports only simple matching
+		// selects single entry from table
+		// all entries in where must match (they are ANDed)
+		// if columns is null, returns all columns
+	
+		$quoted = self::quoteNames([$table, array_keys($where), $columns, $orderby]);
+
+		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
+		$colstr = $columns === null ? '*' : implode(',', $quoted[2]);
+
+		return $this->query('SELECT ' . $colstr . ' FROM ' . $quoted[0] . ' ' . $wherestr, $where);
+	}
+
+	function selectSingle($table, $where, $columns = null) {
+	
+		$statement = call_user_func_array([$this, 'select'], func_get_args());
+
+		return $statement->fetch();
+	}
+
+	/*
+	private function get_dbtype() {
+		return $this->getAttribute(PDO::ATTR_DRIVER_NAME);
+	}
+	private function get_dbversion() {
+		return $this->getAttribute(PDO::ATTR_SERVER_VERSION);
+	}
+	 */
+	
+	
+	// BACKWARDS COMPATIBILITY STUBS ---------------
+	public function close() { }
+	public function is_connected() { return true; }
+	public function begintransaction() { return $this->beginTransaction(); }
+	public function fetch_array() { return $this->laststatement->fetch(); }
+	public function affected_rows() { return $this->laststatement->rowCount(); }
+	public function free_result() { }
+	public function query_single() { return call_user_func_array(array($this, 'querySingle'), func_get_args()); }
+	public function get_prefix() { return $this->prefix; }
+	// ---------------------------------------------
 }
 
 ?>
