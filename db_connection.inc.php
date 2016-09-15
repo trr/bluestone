@@ -2,7 +2,7 @@
 
 /*
 	db_connection - a class for low level database abstraction
-	Copyright (c) 2004, 2011 Thomas Rutter
+	Copyright (c) 2004, 2016 Thomas Rutter
 	
 	This file is part of Bluestone.
 	
@@ -67,8 +67,7 @@ class db_connection extends PDO
 		$prefix = ''; // deprecated
 
 	function __construct($dbsettings, $user = null, $pass = null, $extra = []) {
-	// tries to make a connection to the server.
-	// if an error occurs, is_connected() will return false and get_error() will return an error message
+	// makes a connection to the server.
 	
 	// backwards-compatible $dbsettings could be an array:
 	//  'server' => server hostname
@@ -103,7 +102,6 @@ class db_connection extends PDO
 			PDO::ATTR_EMULATE_PREPARES => true,
 			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC);
 
-		// according to PDO, errors connecting always throw exceptions
 		parent::__construct($dbsettings, $user, $pass, $extra);
 	}
 
@@ -120,10 +118,12 @@ class db_connection extends PDO
 		return $flat;
 	}
 	
-	public function query($str)
-	// tries a query.	returns false if unsuccessful, or result resource if successful
-	// args should be an array of replaced values, but this function also accepts
-	// (deprecated) any number of args as individual arguments
+	public function query($str /*, ... */)
+	// runs a query.  Parameters can be added with '?' and supplied as additional
+	// arguments after the query string, either in an array, or as multiple arguments
+	// (or a combination of both)
+	// returns PDO statement object which you can iterate over with foreach to
+	// fetch rows
 	{
 		$values = self::flattenArray(array_slice(func_get_args(), 1));
 
@@ -150,13 +150,16 @@ class db_connection extends PDO
 		return $statement;
 	}
 	
-	public function querySingle($query) {
+	public function querySingle($query /*, ... */) {
 	// tries a query.	fetches the first row and returns it as an array.	
-	// then frees the result.	therefore, should be a SELECT (or something that
-	// returns results, like a SHOW)
+	// then frees the result.	Recommended for SELECT statements that will
+	// return a single row
 		$statement = call_user_func_array([$this, 'query'], func_get_args());
 
-		return $statement->fetch();
+		$row = $statement->fetch();
+		$statement->closeCursor();
+
+		return $row;
 	}
 
 	public function valueList($arr) {
