@@ -66,7 +66,7 @@ class db_connection extends PDO
 		$identquote = '"',
 		$prefix = ''; // deprecated
 
-	function __construct($dbsettings, $user = null, $pass = null, $extra = null) {
+	function __construct($dbsettings, $user = null, $pass = null, $extra = []) {
 	// tries to make a connection to the server.
 	// if an error occurs, is_connected() will return false and get_error() will return an error message
 	
@@ -97,14 +97,14 @@ class db_connection extends PDO
 
 		if (preg_match('/^mysql:/i', $dbsettings)) $this->identquote = '`';
 
+		$extra += array(
+			PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+			// always do parameterisation client-side, faster when db latency is the bottleneck
+			PDO::ATTR_EMULATE_PREPARES => true,
+			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC);
+
 		// according to PDO, errors connecting always throw exceptions
 		parent::__construct($dbsettings, $user, $pass, $extra);
-
-		$this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-		// always do parameterisation client-side, faster when db latency is the bottleneck
-		$this->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-		$this->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 	}
 
 	private static function flattenArray($arr) {
@@ -250,10 +250,9 @@ class db_connection extends PDO
 	// BACKWARDS COMPATIBILITY STUBS ---------------
 	public function close() { }
 	public function is_connected() { return true; }
-	public function begintransaction() { return $this->beginTransaction(); }
 	public function fetch_array() { return $this->laststatement->fetch(); }
 	public function affected_rows() { return $this->laststatement->rowCount(); }
-	public function free_result() { }
+	public function free_result() { return $this->laststatement->closeCursor(); }
 	public function query_single() { return call_user_func_array(array($this, 'querySingle'), func_get_args()); }
 	public function get_prefix() { return $this->prefix; }
 	// ---------------------------------------------
