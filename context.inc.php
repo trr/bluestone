@@ -36,8 +36,7 @@ class context
 		$statustext = 'OK',
 		$contenttype = 'text/html; charset=utf-8',
 		$cookies = false,
-		$sourcearray,
-		$debug = null;
+		$sourcearray;
 
 	function __construct()
 	{
@@ -54,9 +53,6 @@ class context
 		if (get_magic_quotes_gpc()) throw new Exception('Magic quotes are enabled; please disable');
 
 		header_remove('X-Powered-By');
-
-		if (class_exists('debug'))
-			$this->debug = &debug::getinstance();
 	}
 	
 	public function load_var($varname, $source = 'GET', $type='string', $options = array())
