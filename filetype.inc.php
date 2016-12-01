@@ -148,7 +148,7 @@ class filetype
 			"FWS" => 'application/x-shockwave-flash',
 			"XFIR" => 'application/x-shockwave',
 			"%!PS" => 'application/postscript',
-			"{\rtf1" => 'application/rtf',			
+			"{\\rtf1" => 'application/rtf',			
 			);
 		
 		$this->types = array();

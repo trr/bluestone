@@ -189,13 +189,18 @@ class db_connection extends PDO
 		return $names;
 	}
 
-	function insert($table, $values) {
+	function insert($table, $values, $replace = false) {
 		// insert new row. $values must be array of ($key => $value)
 
 		$columns = !is_array(reset($values)) ? array_keys($values) : array_keys(reset($values));
 		$quoted = $this->quoteNames([$table, $columns]);
+<<<<<<< HEAD
+=======
+
+        $verb = $replace ? 'REPLACE' : 'INSERT';
+>>>>>>> 1c6164f50aea58b6747f9f789a703e4b616f1432
 		
-		return $this->query('INSERT INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
+		return $this->query($verb . ' INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
 			self::valueList($values),
 			$values);
 	}
