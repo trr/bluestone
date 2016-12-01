@@ -227,7 +227,7 @@ class db_connection extends PDO
 		// all entries in where must match (they are ANDed)
 		// if columns is null, returns all columns
 	
-		$quoted = $this->quoteNames([$table, array_keys($where), $columns, $orderby]);
+		$quoted = $this->quoteNames([$table, array_keys($where), $columns]);
 
 		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
 		$colstr = $columns === null ? '*' : implode(',', $quoted[2]);
