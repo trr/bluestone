@@ -209,7 +209,7 @@ class db_connection extends PDO
 		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
 		$setstr = 'SET ' . implode('=?,', $quoted[2]) . '=?';
 
-		return $this->query('UPDATE ' . $quoted[0] . ' SET ' . $setstr . ' ' . $wherestr, $values, $where);
+		return $this->query('UPDATE ' . $quoted[0] . ' ' . $setstr . ' ' . $wherestr, $values, $where);
 	}
 
 	function delete($table, $where) {
