@@ -71,6 +71,8 @@ class textnormal
 			else
 				$str = strtr($str, self::$lowercharstable);
 		}
+
+        return $str;
 	}
 
 	public static function spaces($str) {
