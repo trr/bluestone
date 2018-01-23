@@ -64,6 +64,8 @@ class textnormal
 		// UTF sequences starting c2-c9 can be folded
 		$tmp = strtr($str, "\xc3\xc4\xc5\xc7\xe1", "\xf8\xf9\xf9\xf9\xf9");
 
+        $str = strtr($str, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+
 		if ($tmp !== $str) {
 			// if there are no c4-c7 then we can use a shorter, faster table
 			if (strpos($tmp, "\xf9") === false)
@@ -71,6 +73,8 @@ class textnormal
 			else
 				$str = strtr($str, self::$lowercharstable);
 		}
+
+        return $str;
 	}
 
 	public static function spaces($str) {

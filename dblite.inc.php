@@ -211,4 +211,55 @@ class dblite extends SQLite3 {
 		return parent::busyTimeout($msec);
 	}
 
+	function prepareTable($table, $fields, $indexes) {
+		// creates table with given fields and indexes
+		// if table exists, it makes sure it has these fields and indexes
+		// $fields is array of $name => array($type, $default, $nullsallowed)
+
+		$quoted = self::quotenames(array($table, array_keys($fields), array_keys($indexes)));
+
+		static $typeaffinity = array(
+			'INT' => 1, 'TIN' => 1, 'SMA' => 1, 'MED' => 1, 'BIG' => 1, 'UNS' => 1,
+			'CHA' => 2, 'VAR' => 2, 'NCH' => 2, 'NAT' => 2, 'NVA' => 2, 'TEX' => 2, 'CLO' => 2,
+			'BLO' => 3,
+			'REA' => 4, 'DOU' => 4, 'FLO' => 4,
+			'NUM' => 5, 'DEC' => 5, 'BOO' => 5, 'DAT' => 5
+		);
+		static $affinity = array(
+			1 => 'INTEGER', 2 => 'TEXT', 3 => 'BLOB', 4 => 'REAL', 5 => 'NUMERIC'
+		);
+
+		// normalise type names to their affinity
+		foreach ($fields as $name => $field) {
+			$short = strtoupper(substr($field[0], 0, 3));
+			$fields[$name][0] = $affinity[$typeaffinity[$short]];
+		}
+
+		$recreate = false;
+		$existing = array();
+		$this->query("PRAGMA table_info(" . $quoted[0] . ")");
+		while ($row = $this->fetch_array()) {
+			// get base affinity of type name
+			$existing[] = $row['name'];
+		
+			if (isset($fields[$row['name']]) {
+				$newfield = $fields[$row['name']];
+				$short = strtoupper(substr($row['type']), 0, 3));
+				$atype = $affinity[$typeaffinity[$short]];
+				if ($atype != $newfield[0] || $row['dflt_value'] != $newfield[1] || $row['notnull'] != $newfield[2]) {
+					$recreate = true;
+				}
+			}
+			else {
+				$fields[$row['name']] = array($row['type'], $row['dflt_value'], !$row['notnull']);
+			}
+		}
+		foreach ($fields as $name => $field) if (!isset($existing[$name])) {
+			$recreate = true;
+		}
+
+		if (!$existing || $recreate) {
+		}
+	}
+
 }

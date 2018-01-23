@@ -178,41 +178,43 @@ class db_connection extends PDO
 		return $val . str_repeat(',' . $val, $repeat);
 	}
 
-	private static function quoteNames($names) {
+	private function quoteNames($names) {
 
 		$q = $this->identquote;
 
 		foreach ($names as $key => $val) {
 			$names[$key] = !is_array($val) ? $q . str_replace($q, $q.$q, $val) . $q :
-				self::quoteNames($val);
+				$this->quoteNames($val);
 		}
 		return $names;
 	}
 
-	function insert($table, $values) {
+	function insert($table, $values, $replace = false) {
 		// insert new row. $values must be array of ($key => $value)
 
 		$columns = !is_array(reset($values)) ? array_keys($values) : array_keys(reset($values));
-		$quoted = self::quoteNames([$table, $columns]);
+		$quoted = $this->quoteNames([$table, $columns]);
+
+        $verb = $replace ? 'REPLACE' : 'INSERT';
 		
-		return $this->query('INSERT INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
+		return $this->query($verb . ' INTO ' . $quoted[0] . ' (' . implode(',', $quoted[1]) . ') VALUES ' .
 			self::valueList($values),
 			$values);
 	}
 
 	function update($table, $where, $values) {
 
-		$quoted = self::quoteNames([$table, array_keys($where), array_keys($values)]);
+		$quoted = $this->quoteNames([$table, array_keys($where), array_keys($values)]);
 
 		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
 		$setstr = 'SET ' . implode('=?,', $quoted[2]) . '=?';
 
-		return $this->query('UPDATE ' . $quoted[0] . ' SET ' . $setstr . ' ' . $wherestr, $values, $where);
+		return $this->query('UPDATE ' . $quoted[0] . ' ' . $setstr . ' ' . $wherestr, $values, $where);
 	}
 
 	function delete($table, $where) {
 
-		$quoted = self::quoteNames([$table, array_keys($where)]);
+		$quoted = $this->quoteNames([$table, array_keys($where)]);
 
 		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
 
@@ -225,7 +227,7 @@ class db_connection extends PDO
 		// all entries in where must match (they are ANDed)
 		// if columns is null, returns all columns
 	
-		$quoted = self::quoteNames([$table, array_keys($where), $columns, $orderby]);
+		$quoted = $this->quoteNames([$table, array_keys($where), $columns]);
 
 		$wherestr = $where ? 'WHERE ' . implode('=? AND ', $quoted[1]) . '=?' : '';
 		$colstr = $columns === null ? '*' : implode(',', $quoted[2]);
