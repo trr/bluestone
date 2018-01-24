@@ -112,7 +112,7 @@ class debug
 		{
 			// in debug mode we handle all errors
 			if ($this->debugmode) {
-				error_reporting(-1);
+				error_reporting(E_ALL);
 				ini_set('display_errors', '1');
 			}
 			set_error_handler(array(&$this, 'debug_errorhandler'));
@@ -214,8 +214,9 @@ class debug
 			E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning',
 			E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning',
 			E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning',
-			E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error', 4096 => 'Recoverable Error',
-			8192 => 'Deprecated Error', 16384 => 'User Deprecated Error',
+			E_USER_NOTICE => 'User Notice', E_STRICT => 'Strict Error',
+            E_RECOVERABLE_ERROR => 'Recoverable Error', E_DEPRECATED => 'Deprecated Error',
+            E_USER_DEPRECATED => 'User Deprecated Error',
 			);
 
 		if (is_object($err)) {
