@@ -108,7 +108,7 @@ class diff
 			$cmplen = min($matchsize, $coarse ? 120 : 12);
 		}
 		// backtrack from end if this is really the end
-		if ($final)
+		if ($final && $amax && $bmax)
 			return diff::backtrack($a, $b, $amax, $bmax, $aoff, $boff, $matchsize, $cmplen, $utf8);
 
 		return array($amax, $bmax);
@@ -117,7 +117,7 @@ class diff
 	private static function backtrack($a, $b, $alen, $blen, $aoff, $boff, $matchsize, $cmplen = 12, $utf8 = false)
 	{
 		// shift AOFF back if there are earlier matches only a few chars ago
-		if (($pos = strpos(substr($a, $aoff+$alen+1-$matchsize, $matchsize+$cmplen-2),
+		if ($boff+$blen < strlen($b) && ($pos = strpos(substr($a, $aoff+$alen+1-$matchsize, $matchsize+$cmplen-2),
 			substr($b, $boff+$blen, $cmplen))) !== false)
 			$alen += ($pos+1-$matchsize);
 			
