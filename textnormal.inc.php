@@ -51,7 +51,7 @@ class textnormal
 			$str = self::wordsep($str);
 			if (!$dashes) $str = str_replace('-', ' ', $str);
 		} elseif ($spaces) $str = self::spaces($str);
-		if ($this->apos != "'") $str = str_replace("'", $apos, $str);
+		if ($this->apos != "'") $str = str_replace("'", $this->apos, $str);
 		return $str;
 	}
 	public function setwebchars() {} // deprecated
@@ -153,10 +153,7 @@ class textnormal
 
 	public function naturalsortindex($normaliseletters = true)
 	{
-		$webchars = $this->webchars;
-		$this->webchars = false;
 		$str = $this->normal($normaliseletters);
-		$this->webchars = $webchars;
 		
 		$str = preg_replace('/^the |^an? /i', '', $str);
 		
