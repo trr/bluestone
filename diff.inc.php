@@ -72,20 +72,25 @@ class diff
 		return $i + strspn(strrev($xor), "\0");
 	}
 	
-	public static function strgetdifflen($a, $b, $aoff = 1, $boff = 0, $utf8 = false, $coarse = false, $final = true)
+	public static function strgetdifflen($a, $b, $aoff = 0, $boff = 0, $utf8 = false, $coarse = false, $final = true)
 	// substring matching - returns the length in bytes of the initial segments
 	// of the strings (from offsets) which contain no significant matching substrings.
 	// utf8 mode avoids breaking utf8 chars
 	// coarse mode misses more matches and increases speed
+    // setting final to false skips backtracking at the end to find small final matching segments
 	{
 		$amax = strlen($a) - $aoff;
 		$bmax = strlen($b) - $boff;
 		$max = max($amax, $bmax);
-		$len = strlen($a) + strlen($b);
-		$maxmatchsize = (int)ceil(max(2, sqrt($len)/4, $len/64));
+
+        // calculate match sizes
+		$totallen = strlen($a) + strlen($b);
+		$maxmatchsize = (int)ceil(max(2, sqrt($totallen)/4, $totallen/64));
 		$matchsize = $coarse ? min(80, (int)($maxmatchsize / 2)) : min(7, $maxmatchsize);
 		$cmplen = $coarse ? 60 : min(4, $matchsize);
+
 		$pos1 = $pos2 = false;
+
 		for ($i = $matchsize; $i < $max;)
 		{			
 			if ($i < $bmax-$cmplen)
@@ -104,7 +109,7 @@ class diff
 			}			
 			
 			$i += $matchsize;
-			$matchsize = min($maxmatchsize, ceil($matchsize*1.25));
+			$matchsize = min($maxmatchsize, (int)ceil($matchsize*1.25));
 			$cmplen = min($matchsize, $coarse ? 120 : 12);
 		}
 		// backtrack from end if this is really the end
@@ -115,6 +120,10 @@ class diff
 	}
 	
 	private static function backtrack($a, $b, $alen, $blen, $aoff, $boff, $matchsize, $cmplen = 12, $utf8 = false)
+    // when searching for a match we've found a matching section OR the end of both strings. in case
+    // the match started a little earlier than what we found, OR the last few characters in the string matched,
+    // we backtrack to the start of the matching section
+    // $alen and $blen are the current (over-)estimated lengths of the different section
 	{
 		// shift AOFF back if there are earlier matches only a few chars ago
 		if ($boff+$blen < strlen($b) && ($pos = strpos(substr($a, $aoff+$alen+1-$matchsize, $matchsize+$cmplen-2),
