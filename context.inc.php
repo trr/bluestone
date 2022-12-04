@@ -32,9 +32,6 @@
 class context
 {
 	private
-		$statuscode = 200,
-		$statustext = 'OK',
-		$contenttype = 'text/html; charset=utf-8',
 		$cookies = false,
 		$sourcearray;
 
@@ -146,14 +143,9 @@ class context
 	}
 	
 	public function header($text, $replace = false) {
+		//todo delete?
 	// now just an alias for php header() but with default $replace as false
 		header($text, $replace);
-	}
-	
-	public function setstatus($code, $text) {
-		header("HTTP/1.1 $code $text");
-		$this->statuscode = $code;
-		$this->statustext = $text;
 	}
 	
 	public function setcookie($nam,$val='',$exp=0,$path='',$dom='',$secu=false,$httponly=false)
@@ -164,60 +156,6 @@ class context
 		return setcookie($nam,$val,$exp,$path,$dom,$secu,$httponly);
 	}
 
-	public function handleetag($etag) {
-	// returns true if the etag is matched (and we should not output any body)
-	// if you intend to return a status code other than "200 OK" you must call
-	// setstatus() prior to this
-
-		if ($this->statuscode == 200) {
-			header('ETag: ' . $etag);
-
-			$ifnonematch = $this->load_var('HTTP_IF_NONE_MATCH', 'SERVER', 'string');
-			if ($ifnonematch=='*' || strpos($ifnonematch, '"'.$etag.'"')!==false) {
-				$this->setstatus(304, "Not Modified");
-				return true;
-			}
-		}
-
-		// todo we should return 412 for if-match even when no etag is specified
-		if ($this->statuscode < 299 && $this->statuscode >= 200 && (
-			(($ifmatch = $this->load_var('HTTP_IF_MATCH', 'SERVER', 'string')) !== null &&
-			strpos($ifmatch, '"' . $etag . '"') === false))) {
-
-			header('HTTP/1.1 412 Precondition Failed');
-			return true;
-		}
-
-		return false;
-	}
-
-	public function handlelastmodified($lastmodified) {
-	// returns true if the response is not modified (and we should not output any body)
-	// if you intend to return a status code other than "200 OK" you must call
-	// setstatus() prior to this
-
-		if ($this->statuscode == 200) {
-			if ($ifmodifiedsince = $this->load_var('HTTP_IF_MODIFIED_SINCE', 'SERVER', 'string')) {
-				list($ifmodifiedsince) = explode(';', $ifmodifiedsince);
-				$modifiedsincetime = strtotime($ifmodifiedsince);
-				if ($lastmodified <= $modifiedsincetime) {
-					$this->setstatus(304, "Not Modified");
-					return true;
-				}
-			}
-			header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $lastmodified) . ' GMT'); //no lastmod if 304
-		}
-
-		// todo we should return 412 for if-unmodified-since even when no etag is specified
-		if ($this->statuscode < 299 && $this->statuscode >= 200 && (
-			(($ifunmodified = $this->load_var('HTTP_IF_UNMODIFIED_SINCE', 'SERVER', 'string')) !== null &&
-			$lastmodified > strtotime($ifunmodified)))) {
-
-			header('HTTP/1.1 412 Precondition Failed');
-			return false;
-		}
-		return false;
-	}
 		
 	public function setcacheheaders($ttl = null, $vary = array(), $directives = array()) {
 	// if you intend to send any cookies the setcookie() method MUST be called prior to this
@@ -241,14 +179,6 @@ class context
 		// output cache headers
 		if (count($directives)) header('Cache-Control: ' . implode(', ', array_keys(array_filter($directives))));
 		if (!empty($vary)) header('Vary: ' . implode(', ', array_keys(array_filter($vary))));
-	}
-	
-	public function setcontenttype($contenttype)
-	// you should define the character set, where applicable, like this
-	// 'text/plain; charset=utf-8'
-	{
-		header('Content-Type: ' . $contenttype);
-		$this->contenttype = $contenttype;
 	}
 	
 	public function fatal_error($name='', $details='')
