@@ -74,7 +74,7 @@ class difftester extends tester
 		$this->assert(count($result), '==', 3);
 		$this->assert($result[0], '==', array(20,3,20,3));
 		$this->assert($result[1], '==', array(31,3,31,12));
-		$this->assert($result[2], '==', array(40,4,49,4));
+		$this->assert($result[2], '==', array(40,2,49,2));
 
 		$result2 = diff::dodiff($a, $b, true);
 		$this->assert($result, '==', $result2);
